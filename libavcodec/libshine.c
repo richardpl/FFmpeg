@@ -38,7 +38,7 @@ typedef struct SHINEContext {
     AudioFrameQueue afq;
 } SHINEContext;
 
-static av_cold int shine_encode_init(AVCodecContext *avctx)
+static av_cold int avcodec_shine_encode_init(AVCodecContext *avctx)
 {
     SHINEContext *s = avctx->priv_data;
 
@@ -47,17 +47,17 @@ static av_cold int shine_encode_init(AVCodecContext *avctx)
         return AVERROR(EINVAL);
     }
 
-    L3_set_config_mpeg_defaults(&s->config.mpeg);
+    shine_set_config_mpeg_defaults(&s->config.mpeg);
     if (avctx->bit_rate)
         s->config.mpeg.bitr = avctx->bit_rate / 1000;
-    if (L3_find_bitrate_index(s->config.mpeg.bitr) < 0) {
+    if (shine_find_bitrate_index(s->config.mpeg.bitr) < 0) {
         av_log(avctx, AV_LOG_ERROR, "invalid bitrate\n");
         return AVERROR(EINVAL);
     }
     s->config.mpeg.mode = avctx->channels == 2 ? STEREO : MONO;
     s->config.wave.samplerate = avctx->sample_rate;
     s->config.wave.channels   = avctx->channels == 2 ? PCM_STEREO : PCM_MONO;
-    s->shine = L3_initialise(&s->config);
+    s->shine = shine_initialise(&s->config);
     if (!s->shine)
         return AVERROR(ENOMEM);
     avctx->frame_size = samp_per_frame;
@@ -65,8 +65,8 @@ static av_cold int shine_encode_init(AVCodecContext *avctx)
     return 0;
 }
 
-static int shine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
-                              const AVFrame *frame, int *got_packet_ptr)
+static int avcodec_shine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
+                                      const AVFrame *frame, int *got_packet_ptr)
 {
     SHINEContext *s = avctx->priv_data;
     MPADecodeHeader hdr;
@@ -75,9 +75,9 @@ static int shine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
     int ret, len;
 
     if (frame)
-        data = L3_encode_frame(s->shine, frame->data[0], &written);
+        data = shine_encode_frame(s->shine, frame->data[0], &written);
     else
-        data = L3_flush(s->shine, &written);
+        data = shine_flush(s->shine, &written);
     if (written < 0)
         return -1;
     if (written > 0) {
@@ -117,12 +117,12 @@ static int shine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
     return 0;
 }
 
-static av_cold int shine_encode_close(AVCodecContext *avctx)
+static av_cold int avcodec_shine_encode_close(AVCodecContext *avctx)
 {
     SHINEContext *s = avctx->priv_data;
 
     ff_af_queue_close(&s->afq);
-    L3_close(s->shine);
+    shine_close(s->shine);
     return 0;
 }
 
@@ -135,9 +135,9 @@ AVCodec ff_libshine_encoder = {
     .type                  = AVMEDIA_TYPE_AUDIO,
     .id                    = CODEC_ID_MP3,
     .priv_data_size        = sizeof(SHINEContext),
-    .init                  = shine_encode_init,
-    .encode2               = shine_encode_frame,
-    .close                 = shine_encode_close,
+    .init                  = avcodec_shine_encode_init,
+    .encode2               = avcodec_shine_encode_frame,
+    .close                 = avcodec_shine_encode_close,
     .capabilities          = CODEC_CAP_DELAY,
     .sample_fmts           = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_S16P,
                                                             AV_SAMPLE_FMT_NONE },
