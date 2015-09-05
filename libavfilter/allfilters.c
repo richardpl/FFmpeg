@@ -269,6 +269,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(REMOVEGRAIN,    removegrain,    vf);
     REGISTER_FILTER(REMOVELOGO,     removelogo,     vf);
     REGISTER_FILTER(REPEATFIELDS,   repeatfields,   vf);
+    REGISTER_FILTER(RETINEX,        retinex,        vf);
     REGISTER_FILTER(REVERSE,        reverse,        vf);
     REGISTER_FILTER(ROTATE,         rotate,         vf);
     REGISTER_FILTER(SAB,            sab,            vf);
