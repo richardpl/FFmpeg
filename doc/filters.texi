@@ -2265,6 +2265,15 @@ Applies only to double-pole filter.
 The default is 0.707q and gives a Butterworth response.
 @end table
 
+@section itur468
+
+ITU R468 scanner filter is optimised for measuring low-level background noise.
+It rises 6 dB/oct at low frequencies, has a peak of around +12 dB at 6.3 kHz,
+and fails off rapidly after that. It returns audio stream unchanged.
+
+Measurements are returned in form of metadata: @code{lavfi.itur468.1.noise} for
+the first channel and so on.
+
 @section join
 
 Join multiple input streams into one multi-channel stream.
