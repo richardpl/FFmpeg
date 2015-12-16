@@ -61,6 +61,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(ALIMITER,       alimiter,       af);
     REGISTER_FILTER(ALLPASS,        allpass,        af);
     REGISTER_FILTER(ALOOP,          aloop,          af);
+    REGISTER_FILTER(AMBISONIC,      ambisonic,      af);
     REGISTER_FILTER(AMERGE,         amerge,         af);
     REGISTER_FILTER(AMETADATA,      ametadata,      af);
     REGISTER_FILTER(AMIX,           amix,           af);
