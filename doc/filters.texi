@@ -4663,6 +4663,36 @@ For example to convert from BT.601 to SMPTE-240M, use the command:
 colormatrix=bt601:smpte240m
 @end example
 
+@section conditional
+
+Conditionaly pass video frames to different filtergraph depending on
+result of expression evaluation.
+
+The filter accepts the following options:
+
+@table @option
+@item expr
+Specify expression evaluation. Default is always true.
+
+@item true
+Set filtergraph to be used when expression evaluation is true.
+By default it is to do absolutely nothing with frames.
+
+@item false
+Set filtergraph to be used when expression evaluation is false.
+By default it is to do absolutely nothing with frames.
+@end table
+
+@subsection Examples
+
+@itemize
+@item
+Apply negate and vflip filter for frames with PTS greater than 10.
+@example
+conditional='gte(PTS,10)':'negate,vflip':null
+@end example
+@end itemize
+
 @section convolution
 
 Apply convolution 3x3 or 5x5 filter.
