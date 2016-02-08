@@ -7537,6 +7537,24 @@ gradfun=radius=8
 
 @end itemize
 
+@section graphhint
+
+Filter video frames with filtergraphs defined from file.
+
+@table @option
+@item file
+Set file that defines filtergraphs for input frame ranges.
+
+Example file:
+
+0,10 negate,vflip
+11,11 drawbox
+22,55 drawgrid
+
+The lines which specify range need to be sorted otherwise first greater
+number wins.
+@end table
+
 @anchor{haldclut}
 @section haldclut
 

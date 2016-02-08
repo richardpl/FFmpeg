@@ -185,6 +185,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(FSPP,           fspp,           vf);
     REGISTER_FILTER(GEQ,            geq,            vf);
     REGISTER_FILTER(GRADFUN,        gradfun,        vf);
+    REGISTER_FILTER(GRAPHHINT,      graphhint,      vf);
     REGISTER_FILTER(HALDCLUT,       haldclut,       vf);
     REGISTER_FILTER(HFLIP,          hflip,          vf);
     REGISTER_FILTER(HISTEQ,         histeq,         vf);
