@@ -260,6 +260,7 @@ static void register_all(void)
     REGISTER_FILTER(PULLUP,         pullup,         vf);
     REGISTER_FILTER(QP,             qp,             vf);
     REGISTER_FILTER(RANDOM,         random,         vf);
+    REGISTER_FILTER(RANGESCOPE,     rangescope,     vf);
     REGISTER_FILTER(READEIA608,     readeia608,     vf);
     REGISTER_FILTER(READVITC,       readvitc,       vf);
     REGISTER_FILTER(REALTIME,       realtime,       vf);
