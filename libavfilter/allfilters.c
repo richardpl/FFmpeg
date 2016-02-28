@@ -203,6 +203,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(HWUPLOAD_CUDA,  hwupload_cuda,  vf);
     REGISTER_FILTER(HSTACK,         hstack,         vf);
     REGISTER_FILTER(HUE,            hue,            vf);
+    REGISTER_FILTER(HUESCOPE,       huescope,       vf);
     REGISTER_FILTER(IDET,           idet,           vf);
     REGISTER_FILTER(IL,             il,             vf);
     REGISTER_FILTER(INFLATE,        inflate,        vf);
