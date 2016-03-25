@@ -295,6 +295,7 @@ OBJS-$(CONFIG_SMPTEBARS_FILTER)              += vsrc_testsrc.o
 OBJS-$(CONFIG_SMPTEHDBARS_FILTER)            += vsrc_testsrc.o
 OBJS-$(CONFIG_TESTSRC_FILTER)                += vsrc_testsrc.o
 OBJS-$(CONFIG_TESTSRC2_FILTER)               += vsrc_testsrc.o
+OBJS-$(CONFIG_ZONEPLATE_FILTER)              += vsrc_testsrc.o
 
 OBJS-$(CONFIG_NULLSINK_FILTER)               += vsink_nullsink.o
 

@@ -76,6 +76,11 @@ typedef struct TestSourceContext {
 
     /* only used by haldclut */
     int level;
+
+    /* only used by zoneplate */
+    float scale;
+    float phase;
+    float vmove, hmove;
 } TestSourceContext;
 
 #define OFFSET(x) offsetof(TestSourceContext, x)
@@ -1523,3 +1528,89 @@ AVFilter ff_vsrc_allrgb = {
 };
 
 #endif /* CONFIG_ALLRGB_FILTER */
+
+#if CONFIG_ZONEPLATE_FILTER
+
+static const AVOption zoneplate_options[] = {
+    { "scale", "set scale",                 OFFSET(scale), AV_OPT_TYPE_FLOAT, {.dbl=1}, 0, INT_MAX, FLAGS },
+    { "phase", "set phase speed",           OFFSET(phase), AV_OPT_TYPE_FLOAT, {.dbl=0}, 0, 512, FLAGS },
+    { "vmove", "set vertical move speed",   OFFSET(vmove), AV_OPT_TYPE_FLOAT, {.dbl=0}, 0, 512, FLAGS },
+    { "hmove", "set horizontal move speed", OFFSET(hmove), AV_OPT_TYPE_FLOAT, {.dbl=0}, 0, 512, FLAGS },
+    COMMON_OPTIONS
+    { NULL }
+};
+
+AVFILTER_DEFINE_CLASS(zoneplate);
+
+static void zoneplate_fill_picture(AVFilterContext *ctx, AVFrame *frame)
+{
+    TestSourceContext *test = ctx->priv;
+    const float scale = test->scale;
+    uint8_t *lum = frame->data[0];
+    uint8_t *cb = frame->data[1];
+    uint8_t *cr = frame->data[2];
+    const int cy = frame->height / 2;
+    const int cx = frame->width / 2;
+    const int nb = test->nb_frame;
+    const float phase = test->phase;
+    const float vmove = test->vmove;
+    const float hmove = test->hmove;
+    int x, y, h, w;
+
+    for (y = -cy + nb * vmove, h = 0; h < frame->height; y++, h++) {
+        for (x = -cx + nb * hmove, w = 0; w < frame->width; x++, w++) {
+            lum[w] = 127.5 * cos(M_PI * ((int)((x * x + y * y) * scale) & 0xFF) / 127.5 + nb * phase) + 127.5;
+            cb[w] = cr[w] = 128;
+        }
+        lum += frame->linesize[0];
+        cb  += frame->linesize[1];
+        cr  += frame->linesize[2];
+    }
+}
+
+static av_cold int zoneplate_init(AVFilterContext *ctx)
+{
+    TestSourceContext *test = ctx->priv;
+
+    if (test->phase == 0 && test->vmove == 0 && test->hmove == 0)
+        test->draw_once = 1;
+    test->fill_picture_fn = zoneplate_fill_picture;
+    return init(ctx);
+}
+
+static int zoneplate_query_formats(AVFilterContext *ctx)
+{
+    static const enum AVPixelFormat pix_fmts[] = {
+        AV_PIX_FMT_YUV444P,
+        AV_PIX_FMT_NONE
+    };
+
+    AVFilterFormats *fmts_list = ff_make_format_list(pix_fmts);
+    if (!fmts_list)
+        return AVERROR(ENOMEM);
+    return ff_set_common_formats(ctx, fmts_list);
+}
+
+static const AVFilterPad avfilter_vsrc_zoneplate_outputs[] = {
+    {
+        .name          = "default",
+        .type          = AVMEDIA_TYPE_VIDEO,
+        .request_frame = request_frame,
+        .config_props  = config_props,
+    },
+    { NULL }
+};
+
+AVFilter ff_vsrc_zoneplate = {
+    .name          = "zoneplate",
+    .description   = NULL_IF_CONFIG_SMALL("Generate zone plate test pattern."),
+    .priv_size     = sizeof(TestSourceContext),
+    .priv_class    = &zoneplate_class,
+    .init          = zoneplate_init,
+    .uninit        = uninit,
+    .query_formats = zoneplate_query_formats,
+    .inputs        = NULL,
+    .outputs       = avfilter_vsrc_zoneplate_outputs,
+};
+
+#endif /* CONFIG_ZONEPLATE_FILTER */

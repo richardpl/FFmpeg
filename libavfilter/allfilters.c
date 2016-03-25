@@ -315,6 +315,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(SMPTEHDBARS,    smptehdbars,    vsrc);
     REGISTER_FILTER(TESTSRC,        testsrc,        vsrc);
     REGISTER_FILTER(TESTSRC2,       testsrc2,       vsrc);
+    REGISTER_FILTER(ZONEPLATE,      zoneplate,      vsrc);
 
     REGISTER_FILTER(NULLSINK,       nullsink,       vsink);
 
