@@ -93,6 +93,7 @@ void av_register_all(void)
     REGISTER_DEMUXER (BFSTM,            bfstm);
     REGISTER_DEMUXER (BRSTM,            brstm);
     REGISTER_DEMUXER (BOA,              boa);
+    REGISTER_DEMUXER (BONK,             bonk);
     REGISTER_DEMUXER (C93,              c93);
     REGISTER_MUXDEMUX(CAF,              caf);
     REGISTER_MUXDEMUX(CAVSVIDEO,        cavsvideo);

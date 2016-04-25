@@ -116,6 +116,7 @@ OBJS-$(CONFIG_BIT_DEMUXER)               += bit.o
 OBJS-$(CONFIG_BIT_MUXER)                 += bit.o
 OBJS-$(CONFIG_BMV_DEMUXER)               += bmv.o
 OBJS-$(CONFIG_BOA_DEMUXER)               += boadec.o
+OBJS-$(CONFIG_BONK_DEMUXER)              += bonk.o rawdec.o
 OBJS-$(CONFIG_BFSTM_DEMUXER)             += brstm.o
 OBJS-$(CONFIG_BRSTM_DEMUXER)             += brstm.o
 OBJS-$(CONFIG_C93_DEMUXER)               += c93.o voc_packet.o vocdec.o voc.o
