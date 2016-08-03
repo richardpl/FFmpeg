@@ -3008,6 +3008,24 @@ Possible values are:
 @end table
 @end table
 
+@section sadrc
+
+Apply simple audio dynamic range compression. This maximizes the volume by
+compressing the audio signal's dynamic range.
+
+@table @option
+@item method
+Set the used method. Can be @code{1} or @code{2}.
+@code{1} uses a single sample to smooth the variations via the standard weighted mean
+over past samples (default).
+@code{2} uses several samples to smooth the variations via the standard weighted mean
+over past samples.
+
+@item target
+Sets the target amplitude as a fraction of the maximum for the sample type.
+Default is 0.25.
+@end table
+
 @section sidechaincompress
 
 This filter acts like normal compressor but has the ability to compress

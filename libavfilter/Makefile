@@ -96,6 +96,7 @@ OBJS-$(CONFIG_PAN_FILTER)                    += af_pan.o
 OBJS-$(CONFIG_REPLAYGAIN_FILTER)             += af_replaygain.o
 OBJS-$(CONFIG_RESAMPLE_FILTER)               += af_resample.o
 OBJS-$(CONFIG_RUBBERBAND_FILTER)             += af_rubberband.o
+OBJS-$(CONFIG_SADRC_FILTER)                  += af_sadrc.o
 OBJS-$(CONFIG_SIDECHAINCOMPRESS_FILTER)      += af_sidechaincompress.o
 OBJS-$(CONFIG_SIDECHAINGATE_FILTER)          += af_agate.o
 OBJS-$(CONFIG_SILENCEDETECT_FILTER)          += af_silencedetect.o
