@@ -250,6 +250,7 @@ extern AVFilter ff_vf_fieldhint;
 extern AVFilter ff_vf_fieldmatch;
 extern AVFilter ff_vf_fieldorder;
 extern AVFilter ff_vf_fillborders;
+extern AVFilter ff_vf_filmgrain;
 extern AVFilter ff_vf_find_rect;
 extern AVFilter ff_vf_floodfill;
 extern AVFilter ff_vf_format;
