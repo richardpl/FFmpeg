@@ -29,6 +29,7 @@ OBJS-$(HAVE_THREADS)                         += pthread.o
 # audio filters
 OBJS-$(CONFIG_ABENCH_FILTER)                 += f_bench.o
 OBJS-$(CONFIG_ACOMPRESSOR_FILTER)            += af_sidechaincompress.o
+OBJS-$(CONFIG_ACOPYPROPS_FILTER)             += f_copyprops.o framesync.o
 OBJS-$(CONFIG_ACROSSFADE_FILTER)             += af_afade.o
 OBJS-$(CONFIG_ACRUSHER_FILTER)               += af_acrusher.o
 OBJS-$(CONFIG_ADELAY_FILTER)                 += af_adelay.o
@@ -143,6 +144,7 @@ OBJS-$(CONFIG_COLORMATRIX_FILTER)            += vf_colormatrix.o
 OBJS-$(CONFIG_COLORSPACE_FILTER)             += vf_colorspace.o colorspacedsp.o
 OBJS-$(CONFIG_CONVOLUTION_FILTER)            += vf_convolution.o
 OBJS-$(CONFIG_COPY_FILTER)                   += vf_copy.o
+OBJS-$(CONFIG_COPYPROPS_FILTER)              += f_copyprops.o framesync.o
 OBJS-$(CONFIG_COREIMAGE_FILTER)              += vf_coreimage.o
 OBJS-$(CONFIG_COVER_RECT_FILTER)             += vf_cover_rect.o lavfutils.o
 OBJS-$(CONFIG_CROP_FILTER)                   += vf_crop.o
