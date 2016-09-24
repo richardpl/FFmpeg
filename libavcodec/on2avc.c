@@ -489,7 +489,7 @@ static void wtf_end_512(On2AVCContext *c, float *out, float *src,
     pretwiddle(&tmp0[256], tmp1, 512, 84, 4, 13, 7, ff_on2avc_tabs_20_84_3);
     pretwiddle(&tmp0[384], tmp1, 512, 84, 4, 15, 5, ff_on2avc_tabs_20_84_4);
 
-    memcpy(src, tmp1, 512 * sizeof(float));
+    memcpy(out, tmp1, 512 * sizeof(float));
 }
 
 static void wtf_end_1024(On2AVCContext *c, float *out, float *src,
@@ -522,7 +522,7 @@ static void wtf_end_1024(On2AVCContext *c, float *out, float *src,
     pretwiddle(&tmp0[512], tmp1, 1024, 84, 4, 13, 7, ff_on2avc_tabs_20_84_3);
     pretwiddle(&tmp0[768], tmp1, 1024, 84, 4, 15, 5, ff_on2avc_tabs_20_84_4);
 
-    memcpy(src, tmp1, 1024 * sizeof(float));
+    memcpy(out, tmp1, 1024 * sizeof(float));
 }
 
 static void wtf_40(On2AVCContext *c, float *out, float *src, int size)
@@ -702,20 +702,26 @@ static int on2avc_reconstruct_channel_ext(On2AVCContext *c, AVFrame *dst, int of
             break;
         case WINDOW_TYPE_EXT4:
             c->wtf(c, buf, in, 1024);
+            c->fdsp->vector_fmul_scalar(buf, buf, 1.0 / (32768 * 1024), 1024);
+            for (i = 0; i < 512; i++) {
+                FFSWAP(float, buf[i], buf[1023 - i]);
+            }
             break;
         case WINDOW_TYPE_EXT5:
             c->wtf(c, buf, in, 512);
-            c->mdct.imdct_half(&c->mdct_half, buf + 512, in + 512);
-            for (i = 0; i < 256; i++) {
-                FFSWAP(float, buf[i + 512], buf[1023 - i]);
+            c->fdsp->vector_fmul_scalar(buf, buf, 1.0 / (32768 * 512), 512);
+            c->mdct_half.imdct_half(&c->mdct_half, buf + 512, in + 512);
+            for (i = 0; i < 512; i++) {
+                FFSWAP(float, buf[i], buf[1023 - i]);
             }
             break;
         case WINDOW_TYPE_EXT6:
-            c->mdct.imdct_half(&c->mdct_half, buf, in);
-            for (i = 0; i < 256; i++) {
-                FFSWAP(float, buf[i], buf[511 - i]);
-            }
+            c->mdct_half.imdct_half(&c->mdct_half, buf, in);
             c->wtf(c, buf + 512, in + 512, 512);
+            c->fdsp->vector_fmul_scalar(buf + 512, buf + 512, 1.0 / (32768 * 512), 512);
+            for (i = 0; i < 512; i++) {
+                FFSWAP(float, buf[i], buf[1023 - i]);
+            }
             break;
         }
 
@@ -752,10 +758,8 @@ static int on2avc_reconstruct_channel(On2AVCContext *c, int channel,
         break;
     }
 
-    if ((c->prev_window_type == WINDOW_TYPE_LONG ||
-         c->prev_window_type == WINDOW_TYPE_LONG_STOP) &&
-        (c->window_type == WINDOW_TYPE_LONG ||
-         c->window_type == WINDOW_TYPE_LONG_START)) {
+    if ((c->window_type == WINDOW_TYPE_LONG ||
+         c->window_type == WINDOW_TYPE_LONG_STOP)) {
         c->fdsp->vector_fmul_window(out, saved, buf, c->long_win, 512);
     } else {
         float *wout = out + 448;
@@ -783,11 +787,11 @@ static int on2avc_reconstruct_channel(On2AVCContext *c, int channel,
         c->fdsp->vector_fmul_window(saved + 320, buf + 6*128 + 64, buf + 7*128, c->short_win, 64);
         memcpy(saved + 448, buf + 7*128 + 64,  64 * sizeof(float));
         break;
-    case WINDOW_TYPE_LONG_START:
+    case WINDOW_TYPE_LONG_STOP:
         memcpy(saved,       buf + 512,        448 * sizeof(float));
         memcpy(saved + 448, buf + 7*128 + 64,  64 * sizeof(float));
         break;
-    case WINDOW_TYPE_LONG_STOP:
+    case WINDOW_TYPE_LONG_START:
     case WINDOW_TYPE_LONG:
         memcpy(saved,       buf + 512,        512 * sizeof(float));
         break;
