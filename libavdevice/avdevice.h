@@ -19,6 +19,7 @@
 #ifndef AVDEVICE_AVDEVICE_H
 #define AVDEVICE_AVDEVICE_H
 
+#define CONFIG_SDL2_OUTDEV 0
 #include "version.h"
 
 /**

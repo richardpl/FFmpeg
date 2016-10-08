@@ -33,6 +33,9 @@
 
 #define ON2AVC_SUBFRAME_SIZE   1024
 
+static float sin_table[512] = { 0 };
+static float cos_table[512] = { 0 };
+
 enum WindowTypes {
     WINDOW_TYPE_LONG       = 0,
     WINDOW_TYPE_LONG_STOP,
@@ -365,8 +368,6 @@ static void twiddle(float *src1, float *src2, int src2_len,
             const double *t = tab;
             for (j = pos; j >= 0; j--)
                 src2[j] += in0 * *t++;
-            for (j = 0; j < tab_len - pos - 1; j++)
-                src2[src2_len - j - 1] += in0 * tab[pos + 1 + j];
         } else {
             for (j = 0; j < tab_len; j++)
                 src2[pos - j] += in0 * tab[j];
@@ -459,6 +460,228 @@ static void combine_fft(float *s0, float *s1, float *s2, float *s3, float *dst,
     CMUL0(dst, len2 + 4, s0, s1, s2, s3, t0, t1, t2, t3, 0, k);
 }
 
+static void helpful(float *dst, unsigned int nbits, int kindsign)
+{
+  signed int size; // ebx@1
+  float *dst2; // edx@4
+  signed int v5; // edi@4
+  signed int v6; // eax@4
+  float *v7; // esi@4
+  unsigned int v8; // ecx@5
+  double v9; // st7@6
+  double v10; // st7@6
+  double sign; // st7@15
+  signed int v12; // eax@17
+  int v13; // edi@19
+  unsigned int v14; // ebp@19
+  int idx; // ebx@19
+  double sinv; // st6@20
+  float *v17; // ecx@20
+  float *v18; // eax@20
+  double cosv; // st5@20
+  unsigned int v20; // edx@20
+  int v21; // esi@20
+  double v22; // st4@21
+  float v23; // ST24_4@21
+  unsigned int n512; // [sp+10h] [bp-10h]@17
+  signed int v25; // [sp+14h] [bp-Ch]@17
+  int x2size; // [sp+1Ch] [bp-4h]@1
+  int nbitsa; // [sp+28h] [bp+8h]@4
+  float *nbitsb; // [sp+28h] [bp+8h]@19
+  float *kindsigna; // [sp+2Ch] [bp+Ch]@19
+
+  size = 1 << nbits;
+  x2size = 2 * (1 << nbits);
+  {
+    dst2 = dst;
+    nbitsa = 2 * (1 << nbits) - 4;
+    v5 = 2;
+    v6 = size;
+    v7 = dst + 2;
+    do
+    {
+      v8 = size;
+      if ( v6 > (unsigned int)v5 )
+      {
+        v9 = dst[v6];
+        dst[v6] = *v7;
+        *v7 = v9;
+        v10 = dst[v6 + 1];
+        dst[v6 + 1] = v7[1];
+        v7[1] = v10;
+      }
+      if ( v6 & size )
+      {
+        do
+        {
+          v6 ^= v8;
+          v8 >>= 1;
+        }
+        while ( v8 != 2 && v8 & v6 );
+      }
+      v6 |= v8;
+      v5 += 2;
+      v7 += 2;
+    }
+    while ( v5 < (unsigned int)nbitsa );
+  }
+  if ( (unsigned int)size > 1 )
+  {
+    if ( kindsign )
+      sign = 1.0;
+    else
+      sign = -1.0;
+    v12 = 2;
+    n512 = 512;
+    v25 = 2;
+    while ( 1 )
+    {
+      v13 = 2 * v12;
+      v14 = 0;
+      nbitsb = dst2;
+      kindsigna = &dst2[v12];
+      idx = 0;
+      do
+      {
+        sinv = sin_table[idx];
+        v17 = nbitsb;
+        v18 = kindsigna;
+        cosv = sign * cos_table[idx];
+        v20 = v14;
+        v21 = v13;
+        do
+        {
+          v20 += v13;
+          v22 = sinv * *v18 - cosv * v18[1];
+          v23 = sinv * v18[1] + cosv * *v18;
+          *v18 = *v17 - v22;
+          v18[1] = v17[1] - v23;
+          v18 += v21;
+          *v17 = v22 + *v17;
+          v17[1] = v23 + v17[1];
+          v17 += v21;
+        }
+        while ( v20 < x2size );
+        v14 += 2;
+        idx += n512;
+        nbitsb += 2;
+        kindsigna += 2;
+      }
+      while ( v14 < v25 );
+      n512 >>= 1;
+      v25 = v13;
+      if ( v13 >= (unsigned int)x2size )
+        break;
+      v12 = v13;
+      dst2 = dst;
+    }
+  }
+}
+
+static int myfft_calc(float *ptr, int len, int inverse, float a4)
+{
+  unsigned int len_minus_1; // ebp@1
+  float *ptr2; // edi@4
+  int is_inverse; // edx@7
+  double v8; // st7@9
+  double v9; // st6@9
+  float *ptrx; // eax@11
+  float *end; // esi@11
+  int v12; // ebx@12
+  int v13; // ecx@12
+  double sinn; // st7@13
+  double coss; // st6@13
+  double v16; // st5@13
+  double v17; // st5@13
+  double v18; // st4@13
+  double v19; // st7@13
+  double v20; // st6@13
+  double v21; // st7@17
+  float *v22; // eax@17
+  float sign; // [sp+10h] [bp-Ch]@2
+  float scale; // [sp+14h] [bp-8h]@4
+  signed int v25; // [sp+18h] [bp-4h]@1
+  float ptra; // [sp+20h] [bp+4h]@13
+  float lena; // [sp+24h] [bp+8h]@2
+  float inversea; // [sp+28h] [bp+Ch]@13
+
+  len_minus_1 = len - 1;
+  v25 = 1 << (len - 1);
+  if ( inverse )
+  {
+    sign = 1.0;
+    lena = a4 * 0.5;
+  }
+  else
+  {
+    sign = -1.0;
+    lena = 0.5;
+  }
+  ptr2 = ptr;
+  scale = -(lena * sign);
+  if ( (len_minus_1 & 0x80000000) == 0 )
+  {
+    is_inverse = inverse;
+    if ( !inverse )
+    {
+      helpful(ptr, len_minus_1, 0);
+      is_inverse = 0;
+    }
+    v8 = *ptr;
+    v9 = ptr[1];
+    if ( is_inverse )
+    {
+      v8 = v8 * lena;
+      v9 = v9 * lena;
+    }
+    ptrx = ptr + 2;
+    end = &ptr[2 * v25 - 2];
+    *ptr = v9 + v8;
+    ptr[1] = v8 - v9;
+    if ( ptr + 2 < end )
+    {
+      v12 = (512 >> len_minus_1);
+      v13 = 0;
+      do
+      {
+        sinn = sin_table[v13 + v12];
+        coss = sign * cos_table[v13 + v12];
+        v13 += v12;
+        ptrx += 2;
+        v16 = end[1] + *(ptrx - 1);
+        end -= 2;
+        v17 = v16 * scale;
+        v18 = (end[2] - *(ptrx - 2)) * scale;
+        inversea = v17 * sinn - v18 * coss;
+        v19 = v17 * coss + v18 * sinn;
+        v20 = (end[2] + *(ptrx - 2)) * lena;
+        ptra = (*(ptrx - 1) - end[3]) * lena;
+        *(ptrx - 2) = inversea + v20;
+        end[2] = v20 - inversea;
+        *(ptrx - 1) = v19 + ptra;
+        end[3] = v19 - ptra;
+      }
+      while ( ptrx < end );
+    }
+    if ( (unsigned int)v25 > 1 )
+    {
+      if ( !is_inverse )
+      {
+        ptrx[1] = -ptrx[1];
+        return 0;
+      }
+      v21 = a4 * *ptrx;
+      v22 = ptrx + 1;
+      *(v22 - 1) = v21;
+      *v22 = -(a4 * *v22);
+    }
+    if ( is_inverse )
+      helpful(ptr2, len_minus_1, is_inverse);
+    return 0;
+  }
+  return 0;
+}
+
 static void wtf_end_512(On2AVCContext *c, float *out, float *src,
                         float *tmp0, float *tmp1)
 {
@@ -470,19 +693,25 @@ static void wtf_end_512(On2AVCContext *c, float *out, float *src,
     zero_head_and_tail(src + 256, 128, 13, 7);
     zero_head_and_tail(src + 384, 128, 15, 5);
 
-    c->fft128.fft_permute(&c->fft128, (FFTComplex*)src);
-    c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 128));
-    c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 256));
-    c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 384));
-    c->fft128.fft_calc(&c->fft128, (FFTComplex*)src);
-    c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 128));
-    c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 256));
-    c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 384));
+    myfft_calc(src,       7, 0, 1);
+    myfft_calc(src + 128, 7, 0, 1);
+    myfft_calc(src + 256, 7, 0, 1);
+    myfft_calc(src + 384, 7, 0, 1);
+
+    //c->fft128.fft_permute(&c->fft128, (FFTComplex*)src);
+    //c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 128));
+    //c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 256));
+    //c->fft128.fft_permute(&c->fft128, (FFTComplex*)(src + 384));
+    //c->fft128.fft_calc(&c->fft128, (FFTComplex*)src);
+    //c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 128));
+    //c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 256));
+    //c->fft128.fft_calc(&c->fft128, (FFTComplex*)(src + 384));
     combine_fft(src, src + 128, src + 256, src + 384, tmp1,
                 ff_on2avc_ctab_1, ff_on2avc_ctab_2,
                 ff_on2avc_ctab_3, ff_on2avc_ctab_4, 512, 2);
-    c->fft512.fft_permute(&c->fft512, (FFTComplex*)tmp1);
-    c->fft512.fft_calc(&c->fft512, (FFTComplex*)tmp1);
+    //c->fft512.fft_permute(&c->fft512, (FFTComplex*)tmp1);
+    //c->fft512.fft_calc(&c->fft512, (FFTComplex*)tmp1);
+    myfft_calc(tmp1, 9, 1, 1./256);
 
     pretwiddle(&tmp0[  0], tmp1, 512, 84, 4, 16, 4, ff_on2avc_tabs_20_84_1);
     pretwiddle(&tmp0[128], tmp1, 512, 84, 4, 16, 4, ff_on2avc_tabs_20_84_2);
@@ -503,19 +732,27 @@ static void wtf_end_1024(On2AVCContext *c, float *out, float *src,
     zero_head_and_tail(src + 512, 256, 13, 7);
     zero_head_and_tail(src + 768, 256, 15, 5);
 
-    c->fft256.fft_permute(&c->fft256, (FFTComplex*)src);
-    c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 256));
-    c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 512));
-    c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 768));
-    c->fft256.fft_calc(&c->fft256, (FFTComplex*)src);
-    c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 256));
-    c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 512));
-    c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 768));
+    myfft_calc(src,       8, 0, 1);
+    myfft_calc(src + 256, 8, 0, 1);
+    myfft_calc(src + 512, 8, 0, 1);
+    myfft_calc(src + 768, 8, 0, 1);
+
+    //c->fft256.fft_permute(&c->fft256, (FFTComplex*)src);
+    //c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 256));
+    //c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 512));
+    //c->fft256.fft_permute(&c->fft256, (FFTComplex*)(src + 768));
+    //c->fft256.fft_calc(&c->fft256, (FFTComplex*)src);
+    //c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 256));
+    //c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 512));
+    //c->fft256.fft_calc(&c->fft256, (FFTComplex*)(src + 768));
     combine_fft(src, src + 256, src + 512, src + 768, tmp1,
                 ff_on2avc_ctab_1, ff_on2avc_ctab_2,
                 ff_on2avc_ctab_3, ff_on2avc_ctab_4, 1024, 1);
-    c->fft1024.fft_permute(&c->fft1024, (FFTComplex*)tmp1);
-    c->fft1024.fft_calc(&c->fft1024, (FFTComplex*)tmp1);
+    //c->fdsp->vector_fmul_scalar(tmp1, tmp1, 1./ 1024, 1024);
+    //c->fft1024.fft_permute(&c->fft1024, (FFTComplex*)tmp1);
+    //c->fft1024.fft_calc(&c->fft1024, (FFTComplex*)tmp1);
+
+    myfft_calc(tmp1, 10, 1, 1./512);
 
     pretwiddle(&tmp0[  0], tmp1, 1024, 84, 4, 16, 4, ff_on2avc_tabs_20_84_1);
     pretwiddle(&tmp0[256], tmp1, 1024, 84, 4, 16, 4, ff_on2avc_tabs_20_84_2);
@@ -702,34 +939,30 @@ static int on2avc_reconstruct_channel_ext(On2AVCContext *c, AVFrame *dst, int of
             break;
         case WINDOW_TYPE_EXT4:
             c->wtf(c, buf, in, 1024);
-            c->fdsp->vector_fmul_scalar(buf, buf, 1.0 / (32768 * 1024), 1024);
-            for (i = 0; i < 512; i++) {
-                FFSWAP(float, buf[i], buf[1023 - i]);
-            }
+            c->fdsp->vector_fmul_scalar(buf, buf, 1./ (32768), 1024);
             break;
         case WINDOW_TYPE_EXT5:
             c->wtf(c, buf, in, 512);
-            c->fdsp->vector_fmul_scalar(buf, buf, 1.0 / (32768 * 512), 512);
+            c->fdsp->vector_fmul_scalar(buf, buf, 1./ (32768), 512);
             c->mdct_half.imdct_half(&c->mdct_half, buf + 512, in + 512);
-            for (i = 0; i < 512; i++) {
-                FFSWAP(float, buf[i], buf[1023 - i]);
+            for (i = 0; i < 256; i++) {
+                FFSWAP(float, buf[512 + i], buf[1023 - i]);
             }
             break;
         case WINDOW_TYPE_EXT6:
             c->mdct_half.imdct_half(&c->mdct_half, buf, in);
             c->wtf(c, buf + 512, in + 512, 512);
-            c->fdsp->vector_fmul_scalar(buf + 512, buf + 512, 1.0 / (32768 * 512), 512);
-            for (i = 0; i < 512; i++) {
-                FFSWAP(float, buf[i], buf[1023 - i]);
+            c->fdsp->vector_fmul_scalar(buf+512, buf+512, 1./ (32768), 512);
+            for (i = 0; i < 256; i++) {
+                FFSWAP(float, buf[i], buf[511 - i]);
             }
             break;
         }
 
         memcpy(out, saved, 448 * sizeof(float));
         c->fdsp->vector_fmul_window(wout, saved + 448, buf, c->short_win, 64);
-        memcpy(wout + 128,  buf + 64,         448 * sizeof(float));
-        memcpy(saved,       buf + 512,        448 * sizeof(float));
-        memcpy(saved + 448, buf + 7*128 + 64,  64 * sizeof(float));
+        memcpy(wout + 128, buf + 64,  448 * sizeof(float));
+        memcpy(saved,      buf + 512, 512 * sizeof(float));
     }
 
     return 0;
@@ -787,11 +1020,8 @@ static int on2avc_reconstruct_channel(On2AVCContext *c, int channel,
         c->fdsp->vector_fmul_window(saved + 320, buf + 6*128 + 64, buf + 7*128, c->short_win, 64);
         memcpy(saved + 448, buf + 7*128 + 64,  64 * sizeof(float));
         break;
-    case WINDOW_TYPE_LONG_STOP:
-        memcpy(saved,       buf + 512,        448 * sizeof(float));
-        memcpy(saved + 448, buf + 7*128 + 64,  64 * sizeof(float));
-        break;
     case WINDOW_TYPE_LONG_START:
+    case WINDOW_TYPE_LONG_STOP:
     case WINDOW_TYPE_LONG:
         memcpy(saved,       buf + 512,        512 * sizeof(float));
         break;
@@ -814,6 +1044,8 @@ static int on2avc_decode_subframe(On2AVCContext *c, const uint8_t *buf,
     }
     c->prev_window_type = c->window_type;
     c->window_type      = get_bits(&gb, 3);
+    if (c->window_type)
+        printf("%d\n", c->window_type);
 
     c->band_start  = c->modes[c->window_type].band_start;
     c->num_windows = c->modes[c->window_type].num_windows;
@@ -936,7 +1168,7 @@ static av_cold int on2avc_decode_init(AVCodecContext *avctx)
     for (; i < 128; i++)
         c->scale_tab[i] = ceil(ff_exp10(i * 0.1) * 0.5 - 0.01);
 
-    if (avctx->sample_rate < 32000 || avctx->channels == 1)
+    if (avctx->sample_rate <= 24000 || avctx->sample_rate <= 32000 && avctx->channels == 2)
         memcpy(c->long_win, ff_on2avc_window_long_24000,
                1024 * sizeof(*c->long_win));
     else
@@ -949,9 +1181,9 @@ static av_cold int on2avc_decode_init(AVCodecContext *avctx)
     c->wtf   = (avctx->sample_rate <= 40000) ? wtf_40
                                              : wtf_44;
 
-    ff_mdct_init(&c->mdct,       11, 1, 1.0 / (32768.0 * 1024.0));
-    ff_mdct_init(&c->mdct_half,  10, 1, 1.0 / (32768.0 * 512.0));
-    ff_mdct_init(&c->mdct_small,  8, 1, 1.0 / (32768.0 * 128.0));
+    ff_mdct_init(&c->mdct,       11, 1, 1.0 / (32768 * 1024));
+    ff_mdct_init(&c->mdct_half,  10, 1, 1.0 / (32768 *  512));
+    ff_mdct_init(&c->mdct_small,  8, 1, 1.0 / (32768 *  128));
     ff_fft_init(&c->fft128,  6, 0);
     ff_fft_init(&c->fft256,  7, 0);
     ff_fft_init(&c->fft512,  8, 1);
@@ -984,6 +1216,10 @@ static av_cold int on2avc_decode_init(AVCodecContext *avctx)
         }
     }
 
+    for (i = 0; i < 512; i++) {
+        sin_table[i] = cos(M_PI * i / 512.);
+        cos_table[i] = sin(M_PI * i / 512.);
+    }
     return 0;
 vlc_fail:
     av_log(avctx, AV_LOG_ERROR, "Cannot init VLC\n");
