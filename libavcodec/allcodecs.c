@@ -412,6 +412,7 @@ static void register_all(void)
     REGISTER_DECODER(ATRAC3AL,          atrac3al);
     REGISTER_DECODER(ATRAC3P,           atrac3p);
     REGISTER_DECODER(ATRAC3PAL,         atrac3pal);
+    REGISTER_DECODER(ATRAC9,            atrac9);
     REGISTER_DECODER(BINKAUDIO_DCT,     binkaudio_dct);
     REGISTER_DECODER(BINKAUDIO_RDFT,    binkaudio_rdft);
     REGISTER_DECODER(BMV_AUDIO,         bmv_audio);
