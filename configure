@@ -3081,6 +3081,8 @@ unix_protocol_select="network"
 # filters
 afftfilt_filter_deps="avcodec"
 afftfilt_filter_select="fft"
+afir_filter_deps="avcodec"
+afir_filter_select="fft"
 amovie_filter_deps="avcodec avformat"
 aresample_filter_deps="swresample"
 ass_filter_deps="libass"
