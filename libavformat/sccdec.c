@@ -136,7 +136,7 @@ static int scc_read_header(AVFormatContext *s)
 
         sub->pos = pos;
         sub->pts = ts_start;
-        sub->duration = FFMAX(1200, ts_end - ts_start);
+        sub->duration = ts_end - ts_start;
         memmove(line, line2, sizeof(line));
         FFSWAP(ptrdiff_t, len, len2);
     }
