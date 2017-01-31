@@ -581,6 +581,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER(SUBVIEWER,         subviewer);
     REGISTER_DECODER(SUBVIEWER1,        subviewer1);
     REGISTER_ENCDEC (TEXT,              text);
+    REGISTER_DECODER(TEXTST,            textst);
     REGISTER_DECODER(VPLAYER,           vplayer);
     REGISTER_ENCDEC (WEBVTT,            webvtt);
     REGISTER_ENCDEC (XSUB,              xsub);
