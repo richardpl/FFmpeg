@@ -27,6 +27,7 @@
 typedef struct SCCContext {
     int prev_h, prev_m, prev_s, prev_f;
     int inside;
+    int got_eoc;
     int n;
 } SCCContext;
 
@@ -79,26 +80,34 @@ static int scc_write_packet(AVFormatContext *avf, AVPacket *pkt)
     if (i >= pkt->size)
         return 0;
 
-    if (!scc->inside && (scc->prev_h != h || scc->prev_m != m || scc->prev_s != s || scc->prev_f != f)) {
-        avio_printf(avf->pb, "\n%02d:%02d:%02d:%02d\t", h, m, s, f);
-        scc->inside = 1;
-    }
     for (i = 0; i < pkt->size; i+=3) {
         if (i + 3 > pkt->size)
             break;
 
         if (pkt->data[i] != 0xfc || (pkt->data[i + 1] == 0x80 && pkt->data[i + 2] == 0x80))
             continue;
-        if (!scc->inside) {
-            avio_printf(avf->pb, "\n%02d:%02d:%02d:%02d\t", h, m, s, f);
-            scc->inside = 1;
-        }
         if (scc->n > 0)
             avio_printf(avf->pb, " ");
-        avio_printf(avf->pb, "%02x%02x", pkt->data[i + 1], pkt->data[i + 2]);
+        if (pkt->data[i + 1] == 0x94 && pkt->data[i + 2] == 0x2f) {
+            if (!scc->got_eoc) {
+                avio_printf(avf->pb, "%02x%02x", pkt->data[i + 1], pkt->data[i + 2]);
+                scc->got_eoc = 1;
+            }
+        } else {
+            if (!scc->inside && (scc->prev_h != h || scc->prev_m != m || scc->prev_s != s || scc->prev_f != f) && (pkt->data[i + 1] == 0x94 && pkt->data[i + 2] == 0x20)) {
+                avio_printf(avf->pb, "\n%02d:%02d:%02d:%02d\t", h, m, s, f);
+                scc->inside = 1;
+            }
+            if (pkt->data[i + 1] == 0x94 && pkt->data[i + 2] == 0x2c) {
+                avio_printf(avf->pb, "\n%02d:%02d:%02d:%02d\t", h, m, s, f);
+                scc->n = 0;
+            }
+            avio_printf(avf->pb, "%02x%02x", pkt->data[i + 1], pkt->data[i + 2]);
+            scc->got_eoc = 0;
+        }
         scc->n++;
     }
-    if (scc->inside && (scc->prev_h != h || scc->prev_m != m || scc->prev_s != s || scc->prev_f != f)) {
+    if (scc->inside && scc->got_eoc && (scc->prev_h != h || scc->prev_m != m || scc->prev_s != s || scc->prev_f != f)) {
         avio_printf(avf->pb, "\n");
         scc->n = 0;
         scc->inside = 0;
