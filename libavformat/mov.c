@@ -3764,6 +3764,25 @@ static int mov_read_keys(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
+static int mov_read_xml(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+{
+    uint8_t *xml;
+
+    if (atom.size < 5)
+        return 0;
+
+    avio_skip(pb, 4);
+    xml = av_calloc(atom.size - 4 + 1, sizeof(uint8_t));
+    if (!xml)
+        return AVERROR(ENOMEM);
+
+    avio_read(pb, xml, atom.size - 4);
+    av_dict_set(&c->fc->metadata, "xml", xml, 0);
+    av_free(xml);
+
+    return 0;
+}
+
 static int mov_read_custom(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     int64_t end = avio_tell(pb) + atom.size;
@@ -5280,6 +5299,12 @@ static int mov_read_default(MOVContext *c, AVIOContext *pb, MOVAtom atom)
             parse = mov_read_keys;
         }
 
+        if (!parse && c->export_xml &&
+            atom.type == MKTAG('m','e','t','a') &&
+            a.type == MKTAG('x','m','l',' ')) {
+            parse = mov_read_xml;
+        }
+
         if (!parse) { /* skip leaf atoms data */
             avio_skip(pb, a.size);
         } else {
@@ -6375,6 +6400,8 @@ static const AVOption mov_options[] = {
     { "decryption_key", "The media decryption key (hex)", OFFSET(decryption_key), AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM },
     { "enable_drefs", "Enable external track support.", OFFSET(enable_drefs), AV_OPT_TYPE_BOOL,
         {.i64 = 0}, 0, 1, FLAGS },
+    { "export_xml", "Export full XML metadata", OFFSET(export_xml),
+        AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, .flags = FLAGS },
 
     { NULL },
 };

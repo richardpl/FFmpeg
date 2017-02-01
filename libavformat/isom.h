@@ -230,6 +230,7 @@ typedef struct MOVContext {
     int64_t next_root_atom; ///< offset of the next root atom
     int export_all;
     int export_xmp;
+    int export_xml;
     int *bitrates;          ///< bitrates read before streams creation
     int bitrates_count;
     int moov_retry;
