@@ -23,63 +23,78 @@
 #include "avformat.h"
 #include "internal.h"
 
+typedef struct DHAVContext {
+    int64_t pts;
+} DHAVContext;
+
 static int dhav_probe(AVProbeData *p)
 {
     if (memcmp(p->buf, "DHAV", 4))
         return 0;
 
-    return AVPROBE_SCORE_EXTENSION;
+    return AVPROBE_SCORE_MAX;
 }
 
 static int dhav_read_header(AVFormatContext *s)
 {
-    unsigned codec, align;
-    int mult;
-    AVStream *st;
+    AVStream *st, *ast;
 
     st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
-    st->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
-    st->codecpar->channels    = avio_rl32(s->pb);
-    st->codecpar->sample_rate = avio_rl32(s->pb);
-    codec                  = avio_rl32(s->pb);
-    align                  = avio_rl32(s->pb);
-    avio_skip(s->pb, 4);
-    st->duration           = avio_rl32(s->pb);
-    mult                   = avio_rl32(s->pb);
-    if (st->codecpar->channels <= 0 || mult <= 0 || mult > INT_MAX / st->codecpar->channels) {
-        av_log(s, AV_LOG_ERROR, "invalid number of channels %d x %d\n", st->codecpar->channels, mult);
-        return AVERROR_INVALIDDATA;
-    }
-    st->codecpar->channels *= mult;
-    if (!align || align > INT_MAX / st->codecpar->channels)
-        return AVERROR_INVALIDDATA;
-    st->codecpar->block_align = align * st->codecpar->channels;
+    st->codecpar->codec_type  = AVMEDIA_TYPE_VIDEO;
+    st->codecpar->codec_id    = AV_CODEC_ID_H264;
+    st->need_parsing          = AVSTREAM_PARSE_FULL_RAW;
+    st->internal->avctx->framerate = (AVRational){25, 1};
+    avpriv_set_pts_info(st, 64, 1, 1200000);
 
-    switch (codec) {
-    case  4: st->codecpar->codec_id = AV_CODEC_ID_ADPCM_AICA;       break;
-    case 16: st->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE_PLANAR; break;
-    default: avpriv_request_sample(s, "codec %X", codec);
-             return AVERROR_PATCHWELCOME;
-    }
+    ast = avformat_new_stream(s, NULL);
+    if (!ast)
+        return AVERROR(ENOMEM);
 
-    avio_skip(s->pb, 0x800 - avio_tell(s->pb));
-    avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
+    ast->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
+    ast->codecpar->codec_id    = AV_CODEC_ID_PCM_ALAW;
+    ast->codecpar->channels    = 1;
+    ast->codecpar->sample_rate = 8000;
+    avpriv_set_pts_info(ast, 64, 1, 8000);
+
+    s->ctx_flags |= AVFMTCTX_NOHEADER;
 
     return 0;
 }
 
 static int dhav_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
-    AVCodecParameters *par = s->streams[0]->codecpar;
-    return av_get_packet(s->pb, pkt, par->block_align);
+    unsigned packet, type, size, timestamp;
+    int64_t pos;
+    int ret;
+
+    if (avio_feof(s->pb))
+        return AVERROR_EOF;
+
+    pos = avio_tell(s->pb);
+    if (avio_rl32(s->pb) != MKTAG('D','H','A','V'))
+        return AVERROR_INVALIDDATA;
+    type = avio_rl32(s->pb);
+    packet = avio_rl32(s->pb);
+    size = avio_rl32(s->pb);
+    timestamp = avio_rl32(s->pb);
+    avio_skip(s->pb, 24);
+
+    ret = av_get_packet(s->pb, pkt, size - 52);
+    if (ret < 0)
+        return ret;
+    pkt->stream_index = type == 0xF0 ? 1 : 0;
+    avio_skip(s->pb, 8);
+
+    return ret;
 }
 
 AVInputFormat ff_dhav_demuxer = {
     .name           = "dhav",
     .long_name      = NULL_IF_CONFIG_SMALL("DHAV"),
+    .priv_data_size = sizeof(DHAVContext),
     .read_probe     = dhav_probe,
     .read_header    = dhav_read_header,
     .read_packet    = dhav_read_packet,
