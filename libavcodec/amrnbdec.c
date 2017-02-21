@@ -101,6 +101,7 @@ typedef struct AMRContext {
     AMRNBFrame                        frame; ///< decoded AMR parameters (lsf coefficients, codebook indexes, etc)
     uint8_t             bad_frame_indicator; ///< bad frame ? 1 : 0
     enum Mode                cur_frame_mode;
+    enum Mode               prev_frame_mode;
 
     int16_t     prev_lsf_r[LP_FILTER_ORDER]; ///< residual LSF vector from previous subframe
     double          lsp[4][LP_FILTER_ORDER]; ///< lsp vectors from current frame
@@ -188,6 +189,7 @@ static av_cold int amrnb_decode_init(AVCodecContext *avctx)
     ff_acelp_vectors_init(&p->acelpv_ctx);
     ff_celp_filter_init(&p->celpf_ctx);
     ff_celp_math_init(&p->celpm_ctx);
+    p->prev_frame_mode = NO_DATA;
 
     return 0;
 }
@@ -960,6 +962,7 @@ static int amrnb_decode_frame(AVCodecContext *avctx, void *data,
     float spare_vector[AMR_SUBFRAME_SIZE];   // extra stack space to hold result from anti-sparseness processing
     float synth_fixed_gain;                  // the fixed gain that synthesis should use
     const float *synth_fixed_vector;         // pointer to the fixed vector that synthesis should use
+    int consumed;
 
     /* get output buffer */
     frame->nb_samples = AMR_BLOCK_SIZE;
@@ -969,8 +972,14 @@ static int amrnb_decode_frame(AVCodecContext *avctx, void *data,
 
     p->cur_frame_mode = unpack_bitstream(p, buf, buf_size);
     if (p->cur_frame_mode == NO_DATA) {
-        av_log(avctx, AV_LOG_ERROR, "Corrupt bitstream\n");
-        return AVERROR_INVALIDDATA;
+        p->cur_frame_mode = p->prev_frame_mode;
+        if (p->cur_frame_mode == NO_DATA) {
+            av_log(avctx, AV_LOG_ERROR, "Corrupt bitstream\n");
+            return AVERROR_INVALIDDATA;
+        }
+        consumed = 1;
+    } else {
+        consumed = frame_sizes_nb[p->cur_frame_mode] + 1; // +7 for rounding and +8 for TOC
     }
     if (p->cur_frame_mode == MODE_DTX) {
         avpriv_report_missing_feature(avctx, "dtx mode");
@@ -1075,8 +1084,10 @@ static int amrnb_decode_frame(AVCodecContext *avctx, void *data,
 
     *got_frame_ptr = 1;
 
+    p->prev_frame_mode = p->cur_frame_mode;
+
     /* return the amount of bytes consumed if everything was OK */
-    return frame_sizes_nb[p->cur_frame_mode] + 1; // +7 for rounding and +8 for TOC
+    return consumed;
 }
 
 
