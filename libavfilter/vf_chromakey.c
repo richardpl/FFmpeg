@@ -97,7 +97,7 @@ static int do_chromakey_slice(AVFilterContext *avctx, void *arg, int jobnr, int 
 	    z = ((fgcr[x] - 128) * (ctx->cb - 128) - (fgcb[x] - 128) * (ctx->cr - 128)) >> 7;
 
 	    tmp = FFMIN((w * ctx->accept_angle_tg) >> 4, 127);
-	    if (abs(z) <= tmp) {
+	    if (FFABS(z) <= tmp) {
 		x1 = FFABS(av_clip_int8((z * ctx->accept_angle_ctg) >> 4));
 
 		kbg = 255 - av_clip_uint8((FFMAX(w - x1, 0) * ctx->one_over_kc));
