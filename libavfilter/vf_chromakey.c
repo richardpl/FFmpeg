@@ -33,8 +33,16 @@ typedef struct ChromakeyContext {
 
     float similarity;
     float blend;
+    float angle;
+    float noise_level;
+
+    int kg;
+    uint8_t accept_angle_tg;
+    uint8_t accept_angle_ctg;
+    uint8_t one_over_kc;
 
     int is_yuv;
+    int cb, cr;
 
     int hsub_log2;
     int vsub_log2;
@@ -76,28 +84,35 @@ static av_always_inline void get_pixel_uv(AVFrame *frame, int hsub_log2, int vsu
 static int do_chromakey_slice(AVFilterContext *avctx, void *arg, int jobnr, int nb_jobs)
 {
     AVFrame *frame = arg;
-
     const int slice_start = (frame->height * jobnr) / nb_jobs;
     const int slice_end = (frame->height * (jobnr + 1)) / nb_jobs;
-
+    const uint8_t *fgcb = frame->data[1] + slice_start * frame->linesize[1];
+    const uint8_t *fgcr = frame->data[2] + slice_start * frame->linesize[2];
     ChromakeyContext *ctx = avctx->priv;
-
-    int x, y, xo, yo;
-    uint8_t u[9], v[9];
-
-    memset(u, ctx->chromakey_uv[0], sizeof(u));
-    memset(v, ctx->chromakey_uv[1], sizeof(v));
+    int kbg, x1, tmp, x, y, z, w;
 
     for (y = slice_start; y < slice_end; ++y) {
         for (x = 0; x < frame->width; ++x) {
-            for (yo = 0; yo < 3; ++yo) {
-                for (xo = 0; xo < 3; ++xo) {
-                    get_pixel_uv(frame, ctx->hsub_log2, ctx->vsub_log2, x + xo - 1, y + yo - 1, &u[yo * 3 + xo], &v[yo * 3 + xo]);
-                }
+	    w = ((fgcb[x] - 128) * (ctx->cb - 128) + (fgcr[x] - 128) * (ctx->cr - 128)) >> 7;
+	    z = ((fgcr[x] - 128) * (ctx->cb - 128) - (fgcb[x] - 128) * (ctx->cr - 128)) >> 7;
+
+	    tmp = FFMIN((w * ctx->accept_angle_tg) >> 4, 127);
+	    if (abs(z) <= tmp) {
+		x1 = FFABS(av_clip_int8((z * ctx->accept_angle_ctg) >> 4));
+
+		kbg = 255 - av_clip_uint8((FFMAX(w - x1, 0) * ctx->one_over_kc));
+		tmp = z * z + (w - ctx->kg) * (w - ctx->kg);
+		if (tmp < ctx->noise_level * ctx->noise_level) {
+		    kbg = 255;
+		}
+            } else {
+                kbg = 255;
             }
 
-            frame->data[3][frame->linesize[3] * y + x] = do_chromakey_pixel(ctx, u, v);
+            frame->data[3][frame->linesize[3] * y + x] = kbg;
         }
+        fgcb += frame->linesize[1];
+        fgcr += frame->linesize[2];
     }
 
     return 0;
@@ -121,6 +136,7 @@ static int filter_frame(AVFilterLink *link, AVFrame *frame)
 static av_cold int initialize_chromakey(AVFilterContext *avctx)
 {
     ChromakeyContext *ctx = avctx->priv;
+    float kgl = hypot(ctx->cb - 128, ctx->cr - 128);
 
     if (ctx->is_yuv) {
         ctx->chromakey_uv[0] = ctx->chromakey_rgba[1];
@@ -129,6 +145,11 @@ static av_cold int initialize_chromakey(AVFilterContext *avctx)
         ctx->chromakey_uv[0] = RGB_TO_U(ctx->chromakey_rgba);
         ctx->chromakey_uv[1] = RGB_TO_V(ctx->chromakey_rgba);
     }
+
+    ctx->accept_angle_tg  = FFMIN(0xF * tan(M_PI * ctx->angle / 180), 255);
+    ctx->accept_angle_ctg = FFMIN(0xF / tan(M_PI * ctx->angle / 180), 255);
+    ctx->one_over_kc = FFMIN(0xFF * 2 * 1 / kgl - 0xFF, 127);
+    ctx->kg = kgl;
 
     return 0;
 }
@@ -190,6 +211,10 @@ static const AVOption chromakey_options[] = {
     { "similarity", "set the chromakey similarity value", OFFSET(similarity), AV_OPT_TYPE_FLOAT, { .dbl = 0.01 }, 0.01, 1.0, FLAGS },
     { "blend", "set the chromakey key blend value", OFFSET(blend), AV_OPT_TYPE_FLOAT, { .dbl = 0.0 }, 0.0, 1.0, FLAGS },
     { "yuv", "color parameter is in yuv instead of rgb", OFFSET(is_yuv), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, FLAGS },
+    { "cb", "", OFFSET(cb), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 255, FLAGS },
+    { "cr", "", OFFSET(cr), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 255, FLAGS },
+    { "angle", "", OFFSET(angle), AV_OPT_TYPE_FLOAT, { .dbl = 70 }, 31, 89, FLAGS },
+    { "noise", "", OFFSET(noise_level), AV_OPT_TYPE_FLOAT, { .dbl = 0 }, 0, 255, FLAGS },
     { NULL }
 };
 
