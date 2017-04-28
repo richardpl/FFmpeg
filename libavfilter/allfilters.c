@@ -372,6 +372,7 @@ static void register_all(void)
     REGISTER_FILTER(SPECTRUMSYNTH,  spectrumsynth,  vaf);
 
     /* multimedia sources */
+    REGISTER_FILTER(AVSYNCTEST,     avsynctest,     avsrc);
     REGISTER_FILTER(AMOVIE,         amovie,         avsrc);
     REGISTER_FILTER(MOVIE,          movie,          avsrc);
 
