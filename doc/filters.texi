@@ -5866,6 +5866,30 @@ This option controls maximum possible value that will increase source pixel valu
 Set which planes to filter. Default is all. Allowed range is from 0 to 15.
 @end table
 
+@section ansnr
+
+Obtain the average ANSNR (Anti-Noise Signal to Noise
+Ratio) between two input videos.
+
+This filter takes in input two input videos, the first input is
+considered the "main" source and is passed unchanged to the
+output. The second input is used as a "reference" video for computing
+the ANSNR.
+
+Both video inputs must have the same resolution and pixel format for
+this filter to work correctly. Also it assumes that both inputs
+have the same number of frames, which are compared one by one.
+
+The obtained average ANSNR is printed through the logging system.
+
+For example:
+@example
+ffmpeg -i main.mpg -i ref.mpg -lavfi ansnr -f null -
+@end example
+
+On this example the input file @file{main.mpg} being processed is compared with the
+reference file @file{ref.mpg}.
+
 @section ass
 
 Same as the @ref{subtitles} filter, except that it doesn't require libavcodec
