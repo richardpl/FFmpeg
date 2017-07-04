@@ -620,8 +620,7 @@ static int read_sbr_grid(AACContext *ac, SpectralBandReplication *sbr,
 {
     int i;
     int bs_pointer = 0;
-    // frameLengthFlag ? 15 : 16; 960 sample length frames unsupported; this value is numTimeSlots
-    int abs_bord_trail = 16;
+    int abs_bord_trail = ac->oc[1].m4ac.frame_length_short ? 15 : 16;
     int num_rel_lead, num_rel_trail;
     unsigned bs_num_env_old = ch_data->bs_num_env;
     int bs_frame_class, bs_num_env;

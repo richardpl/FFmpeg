@@ -327,7 +327,9 @@ struct AACContext {
 #if USE_FIXED
     AVFixedDSPContext *fdsp;
 #else
+    MDCT15Context *mdct120;
     MDCT15Context *mdct480;
+    MDCT15Context *mdct960;
     AVFloatDSPContext *fdsp;
 #endif /* USE_FIXED */
     int random_state;
