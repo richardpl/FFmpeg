@@ -10,13 +10,13 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include <QScrollArea>
+#include <QWidget>
 
 namespace Ui {
 class Preview;
 }
 
-class Preview : public QScrollArea
+class Preview : public QWidget
 {
     Q_OBJECT
 
@@ -26,7 +26,15 @@ public:
     ~Preview();
     QString filter_graph_str;
 
+private slots:
+    void on_doubleSpinBox_valueChanged(double arg1);
+
+    void on_horizontalSlider_valueChanged(int value);
+
+    void on_pushButton_clicked(bool checked);
+
 private:
+    void getSingleFrame(double frameTime, int is_relative, int step_forward);
     Ui::Preview *ui;
     AVFormatContext *fmt_ctx = NULL;
     AVCodecContext *dec_ctx = NULL;
