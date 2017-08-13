@@ -21,10 +21,16 @@
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
       <widget class="QScrollArea" name="scrollArea">
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::AdjustToContents</enum>
+       </property>
        <property name="widgetResizable">
         <bool>true</bool>
        </property>
-       <widget class="QWidget" name="scrollAreaWidgetContents_2">
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+       <widget class="QWidget" name="displayArea">
         <property name="geometry">
          <rect>
           <x>0</x>
@@ -33,18 +39,7 @@
           <height>367</height>
          </rect>
         </property>
-        <layout class="QGridLayout" name="gridLayout_3">
-         <item row="0" column="0">
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
+        <layout class="QGridLayout" name="gridLayout_3"/>
        </widget>
       </widget>
      </item>
@@ -65,6 +60,25 @@
       </size>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QPushButton" name="pushButton_2">
+        <property name="minimumSize">
+         <size>
+          <width>21</width>
+          <height>21</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>21</width>
+          <height>21</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>&lt;</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QPushButton" name="pushButton">
         <property name="minimumSize">
@@ -89,6 +103,12 @@
         <property name="minimumSize">
          <size>
           <width>50</width>
+          <height>21</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
           <height>21</height>
          </size>
         </property>
@@ -134,6 +154,16 @@
         </property>
         <property name="tickPosition">
          <enum>QSlider::TicksBothSides</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="window_scale">
+        <property name="minimum">
+         <double>-3.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>3.000000000000000</double>
         </property>
        </widget>
       </item>

@@ -1,12 +1,6 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavfilter/avfiltergraph.h>
-}
-
 #include <QMainWindow>
 
 #include "preview.h"

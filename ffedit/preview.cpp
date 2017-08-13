@@ -1,11 +1,4 @@
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavfilter/avfiltergraph.h>
-#include <libavfilter/buffersrc.h>
-#include <libavfilter/buffersink.h>
-#include <libavutil/opt.h>
-}
+#include <mpv/qthelper.hpp>
 
 #include <QFileDialog>
 
@@ -19,243 +12,128 @@ Preview::Preview(QWidget *parent) :
     ui->setupUi(this);
 }
 
-void Preview::getSingleFrame(double frameTime, int is_relative, int step_forward)
+static void wakeup(void *ctx)
 {
-    AVFrame *frame = av_frame_alloc();
-    AVFrame *filt_frame = av_frame_alloc();
-    AVPacket packet;
-    int got_frame = 0;
-    int64_t pts = AV_NOPTS_VALUE;
-    int64_t framePts;
-    int ret;
+    // This callback is invoked from any mpv thread (but possibly also
+    // recursively from a thread that is calling the mpv API). Just notify
+    // the Qt GUI thread to wake up (so that it can process events with
+    // mpv_wait_event()), and return as quickly as possible.
+    Preview *preview = (Preview *)ctx;
+    emit preview->mpv_events();
+}
 
-    if (!step_forward) {
-        if (!is_relative) {
-            framePts = frameTime * AV_TIME_BASE;
-            ui->horizontalSlider->blockSignals(1);
-            ui->horizontalSlider->setValue(double(framePts) / fmt_ctx->duration * ui->horizontalSlider->maximum());
-            ui->horizontalSlider->blockSignals(0);
-        } else {
-            framePts = frameTime * fmt_ctx->duration;
-            ui->doubleSpinBox->blockSignals(1);
-            ui->doubleSpinBox->setValue(framePts / double(AV_TIME_BASE));
-            ui->doubleSpinBox->blockSignals(0);
+void Preview::handle_mpv_event(mpv_event *event)
+{
+    switch (event->event_id) {
+    case MPV_EVENT_PROPERTY_CHANGE: {
+        mpv_event_property *prop = (mpv_event_property *)event->data;
+        if (strcmp(prop->name, "time-pos") == 0) {
+            if (prop->format == MPV_FORMAT_DOUBLE) {
+                double time = *(double *)prop->data;
+                ui->doubleSpinBox->blockSignals(true);
+                ui->doubleSpinBox->setValue(time);
+                ui->doubleSpinBox->blockSignals(false);
+            } else if (prop->format == MPV_FORMAT_NONE) {
+                // The property is unavailable, which probably means playback
+                // was stopped.
+            }
         }
-        avformat_seek_file(fmt_ctx, -1, INT64_MIN, framePts, framePts, 0);
+        if (strcmp(prop->name, "percent-pos") == 0) {
+            if (prop->format == MPV_FORMAT_DOUBLE) {
+                double percent = *(double *)prop->data;
+                ui->horizontalSlider->blockSignals(true);
+                ui->horizontalSlider->setValue(percent * 10);
+                ui->horizontalSlider->blockSignals(false);
+            } else if (prop->format == MPV_FORMAT_NONE) {
+                // The property is unavailable, which probably means playback
+                // was stopped.
+            }
+        }
+        break;
     }
+    }
+}
 
-    while (!got_frame) {
-        if ((ret = av_read_frame(fmt_ctx, &packet)) < 0)
+void Preview::my_mpv_events()
+{
+    // Process all events, until the event queue is empty.
+    while (mpv) {
+        mpv_event *event = mpv_wait_event(mpv, 0);
+        if (event->event_id == MPV_EVENT_NONE)
             break;
-
-        if (packet.stream_index == video_stream_index) {
-            ret = avcodec_send_packet(dec_ctx, &packet);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Error while sending a packet to the decoder\n");
-                break;
-            }
-
-            while (ret >= 0 && !got_frame) {
-                ret = avcodec_receive_frame(dec_ctx, frame);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                    break;
-                } else if (ret < 0) {
-                    av_log(NULL, AV_LOG_ERROR, "Error while receiving a frame from the decoder\n");
-                    goto end;
-                }
-
-                if (ret >= 0) {
-                    frame->pts = frame->best_effort_timestamp;
-
-                    /* push the decoded frame into the filtergraph */
-                    if (av_buffersrc_add_frame_flags(buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
-                        av_log(NULL, AV_LOG_ERROR, "Error while feeding the filtergraph\n");
-                        break;
-                    }
-
-                    /* pull filtered frames from the filtergraph */
-                    while (!got_frame) {
-                        ret = av_buffersink_get_frame(buffersink_ctx, filt_frame);
-                        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                            break;
-                        }
-                        if (ret < 0) {
-                            av_log(NULL, AV_LOG_ERROR, "Error filtering frame\n");
-                            goto end;
-                        }
-                        QImage frameImage((const uchar *)filt_frame->data[0], filt_frame->width, filt_frame->height, QImage::Format_RGB32);
-                        QPixmap framePixmap = QPixmap::fromImage(frameImage).copy();
-                        ui->label->setPixmap(framePixmap);
-                        pts = av_rescale_q(packet.pts, fmt_ctx->streams[video_stream_index]->time_base, AV_TIME_BASE_Q);
-                        if (pts >= framePts || step_forward)
-                            got_frame = 1;
-                        av_frame_unref(filt_frame);
-                    }
-                    av_frame_unref(frame);
-                }
-            }
-        }
-        av_packet_unref(&packet);
+        handle_mpv_event(event);
     }
-
-    if (step_forward) {
-        ui->horizontalSlider->blockSignals(1);
-        ui->horizontalSlider->setValue(double(pts) / fmt_ctx->duration * ui->horizontalSlider->maximum());
-        ui->horizontalSlider->blockSignals(0);
-        ui->doubleSpinBox->blockSignals(1);
-        ui->doubleSpinBox->setValue(pts / double(AV_TIME_BASE));
-        ui->doubleSpinBox->blockSignals(0);
-    }
-
-end:
-    av_frame_free(&frame);
-    av_frame_free(&filt_frame);
 }
 
 void Preview::previewScript()
 {
-    AVCodec *dec;
-    int ret;
-    char args[512];
-
     this->show();
 
     videoFileName = QFileDialog::getOpenFileName(this,tr("Open Video file"), "", tr("All files (*)"));
 
-    if ((ret = avformat_open_input(&fmt_ctx, videoFileName.toLocal8Bit().constData(), NULL, NULL)) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot open input file\n");
+    mpv = mpv_create();
+    if (!mpv)
         return;
-    }
+    int64_t winId = ui->displayArea->winId();
+    mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &winId);
+    mpv_set_option_string(mpv, "vo", "direct3d");
+    mpv_set_option_string(mpv, "pause", "");
+    mpv_set_option_string(mpv, "keep-open", "yes");
+    //mpv_set_option_string(mpv, "video-unscaled", "yes");
+    mpv_observe_property(mpv, 0, "time-pos", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(mpv, 0, "percent-pos", MPV_FORMAT_DOUBLE);
 
-    if ((ret = avformat_find_stream_info(fmt_ctx, NULL)) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot find stream information\n");
-        return;
-    }
+    connect(this, SIGNAL(mpv_events()), this, SLOT(my_mpv_events()), Qt::QueuedConnection);
+    mpv_set_wakeup_callback(mpv, wakeup, this);
 
-    /* select the video stream */
-    ret = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot find a video stream in the input file\n");
-        return;
-    }
-    video_stream_index = ret;
-
-    /* create decoding context */
-    dec_ctx = avcodec_alloc_context3(dec);
-    if (!dec_ctx)
-        return;
-    avcodec_parameters_to_context(dec_ctx, fmt_ctx->streams[video_stream_index]->codecpar);
-    av_opt_set_int(dec_ctx, "refcounted_frames", 1, 0);
-
-    /* init the video decoder */
-    if ((ret = avcodec_open2(dec_ctx, dec, NULL)) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot open video decoder\n");
-        return;
-    }
-
-    AVFilter *buffersrc  = avfilter_get_by_name("buffer");
-    AVFilter *buffersink = avfilter_get_by_name("buffersink");
-    AVFilterInOut *outputs = avfilter_inout_alloc();
-    AVFilterInOut *inputs  = avfilter_inout_alloc();
-    AVRational time_base = fmt_ctx->streams[video_stream_index]->time_base;
-    enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_RGB32, AV_PIX_FMT_NONE };
-
-    filter_graph = avfilter_graph_alloc();
-    if (!outputs || !inputs || !filter_graph) {
-        ret = AVERROR(ENOMEM);
-        goto enda;
-    }
-
-    snprintf(args, sizeof(args),
-            "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-            dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
-            time_base.num, time_base.den,
-            dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
-
-    ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
-                                       args, NULL, filter_graph);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot create buffer source\n");
-        goto enda;
-    }
-
-    /* buffer video sink: to terminate the filter chain. */
-    ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out",
-                                       NULL, NULL, filter_graph);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot create buffer sink\n");
-        goto enda;
-    }
-
-    ret = av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts,
-                              AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot set output pixel format\n");
-        goto enda;
-    }
-
-    /*
-     * Set the endpoints for the filter graph. The filter_graph will
-     * be linked to the graph described by filters_descr.
-     */
-
-    /*
-     * The buffer source output must be connected to the input pad of
-     * the first filter described by filters_descr; since the first
-     * filter input label is not specified, it is set to "in" by
-     * default.
-     */
-    outputs->name       = av_strdup("in");
-    outputs->filter_ctx = buffersrc_ctx;
-    outputs->pad_idx    = 0;
-    outputs->next       = NULL;
-    /*
-     * The buffer sink input must be connected to the output pad of
-     * the last filter described by filters_descr; since the last
-     * filter output label is not specified, it is set to "out" by
-     * default.
-     */
-    inputs->name       = av_strdup("out");
-    inputs->filter_ctx = buffersink_ctx;
-    inputs->pad_idx    = 0;
-    inputs->next       = NULL;
-
-    if ((ret = avfilter_graph_parse_ptr(filter_graph, filter_graph_str.toLocal8Bit().constData(),
-                                        &inputs, &outputs, NULL)) < 0)
-        goto enda;
-
-    if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
-        goto enda;
-
-enda:
-    avfilter_inout_free(&inputs);
-    avfilter_inout_free(&outputs);
-
-    if (ret < 0)
+    if (mpv_initialize(mpv) < 0)
         return;
 
-    Preview::getSingleFrame(0, 0, 0);
+    const QByteArray c_filename = videoFileName.toUtf8();
+    const char *args[] = {"loadfile", c_filename.data(), NULL};
+
+    mpv_command_async(mpv, 0, args);
+
+    const char *vfargs[] = {"vf", "set", filter_graph_str.toUtf8().constData(), NULL};
+
+    mpv_command(mpv, vfargs);
 }
 
 Preview::~Preview()
 {
-    avfilter_graph_free(&filter_graph);
-    avcodec_free_context(&dec_ctx);
-    avformat_close_input(&fmt_ctx);
+    if (mpv)
+        mpv_terminate_destroy(mpv);
     delete ui;
 }
 
 void Preview::on_doubleSpinBox_valueChanged(double frameTime)
 {
-    Preview::getSingleFrame(frameTime, 0, 0);
+    const char *seekargs[] = {"seek", QString("%1").number(frameTime).toUtf8().constData(), "absolute+exact", NULL};
+    mpv_command_async(mpv, 0, seekargs);
 }
 
 void Preview::on_horizontalSlider_valueChanged(int value)
 {
-    Preview::getSingleFrame(double(value) / ui->horizontalSlider->maximum(), 1, 0);
+    const char *seekargs[] = {"seek", QString("%1").number(double(value) / 10).toUtf8().constData(), "absolute-percent+exact", NULL};
+    mpv_command_async(mpv, 0, seekargs);
 }
 
 void Preview::on_pushButton_clicked(bool checked)
 {
-    Preview::getSingleFrame(0, 0, 1);
+    const char *stepargs[] = {"frame-step", NULL};
+
+    mpv_command_async(mpv, 0, stepargs);
+}
+
+void Preview::on_pushButton_2_clicked(bool checked)
+{
+    const char *stepargs[] = {"frame-back-step", NULL};
+
+    mpv_command_async(mpv, 0, stepargs);
+}
+
+void Preview::on_window_scale_valueChanged(const QString &arg1)
+{
+    const char *zoomargs[] = {"video-zoom", QString("%1").toUtf8().constData(), NULL};
+    mpv_command_async(mpv, 0, zoomargs);
 }

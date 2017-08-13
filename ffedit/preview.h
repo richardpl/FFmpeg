@@ -1,15 +1,7 @@
 #ifndef PREVIEW_H
 #define PREVIEW_H
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavfilter/avfiltergraph.h>
-#include <libavfilter/buffersrc.h>
-#include <libavfilter/buffersink.h>
-#include <libavutil/opt.h>
-}
-
+#include <mpv/client.h>
 #include <QWidget>
 
 namespace Ui {
@@ -27,22 +19,28 @@ public:
     QString filter_graph_str;
 
 private slots:
+    void my_mpv_events();
+
     void on_doubleSpinBox_valueChanged(double arg1);
 
     void on_horizontalSlider_valueChanged(int value);
 
     void on_pushButton_clicked(bool checked);
 
+    void on_pushButton_2_clicked(bool checked);
+
+    void on_window_scale_valueChanged(double arg1);
+
+    void on_window_scale_valueChanged(const QString &arg1);
+
+signals:
+    void mpv_events();
+
 private:
-    void getSingleFrame(double frameTime, int is_relative, int step_forward);
+    void handle_mpv_event(mpv_event *event);
     Ui::Preview *ui;
-    AVFormatContext *fmt_ctx = NULL;
-    AVCodecContext *dec_ctx = NULL;
-    AVFilterContext *buffersink_ctx = NULL;
-    AVFilterContext *buffersrc_ctx = NULL;
-    AVFilterGraph *filter_graph = NULL;
-    int video_stream_index = -1;
-    int64_t last_pts = AV_NOPTS_VALUE;
+
+    mpv_handle *mpv = NULL;
     QString videoFileName;
 };
 

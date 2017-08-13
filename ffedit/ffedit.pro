@@ -9,7 +9,7 @@ QT       += core gui
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += link_pkgconfig
-PKGCONFIG += libavfilter libavcodec libavformat libavutil
+PKGCONFIG += mpv
 
 TARGET = ffedit
 TEMPLATE = app
@@ -31,12 +31,12 @@ DEFINES += __STDC_CONSTANT_MACROS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    preview.cpp
+        preview.cpp
 
 HEADERS += \
         mainwindow.h \
-    preview.h
+        preview.h
 
 FORMS += \
         mainwindow.ui \
-    preview.ui
+        preview.ui
