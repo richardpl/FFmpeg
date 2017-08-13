@@ -1705,3 +1705,101 @@ AVFilter ff_vsrc_allrgb = {
 };
 
 #endif /* CONFIG_ALLRGB_FILTER */
+
+#if CONFIG_CHROMATESTSRC_FILTER
+
+#define chromatestsrc_options options
+AVFILTER_DEFINE_CLASS(chromatestsrc);
+
+static void chromatestsrc_fill_picture(AVFilterContext *ctx, AVFrame *frame)
+{
+    const int gs = frame->linesize[0];
+    const int bs = frame->linesize[1];
+    const int rs = frame->linesize[2];
+    uint8_t *gptr = frame->data[0];
+    uint8_t *bptr = frame->data[1];
+    uint8_t *rptr = frame->data[2];
+    int x, y;
+
+    for (y = 0; y < frame->height / 2; y++) {
+        for (x = 0; x < frame->width / 2; x++) {
+            gptr[x] = 0;
+            bptr[x] = (x & 1) == (y & 1) ? 0 : 255;
+            rptr[x] = (x & 1) != (y & 1) ? 0 : 255;
+        }
+
+        for (; x < frame->width; x++) {
+            gptr[x] = 0;
+            bptr[x] = 128;
+            rptr[x] = 128;
+        }
+
+        gptr += gs;
+        bptr += bs;
+        rptr += rs;
+    }
+
+    for (; y < frame->height; y++) {
+        for (x = 0; x < frame->width / 2; x++) {
+            gptr[x] = 0;
+            bptr[x] = (y & 1) ? 0 : 255;
+            rptr[x] = (y & 1) ? 255 : 0;
+        }
+
+        for (; x < frame->width; x++) {
+            gptr[x] = 0;
+            bptr[x] = (x & 1) ? 0 : 255;
+            rptr[x] = (x & 1) ? 255 : 0;
+        }
+
+        gptr += gs;
+        bptr += bs;
+        rptr += rs;
+    }
+}
+
+static av_cold int chromatestsrc_init(AVFilterContext *ctx)
+{
+    TestSourceContext *test = ctx->priv;
+
+    test->draw_once = 1;
+    test->fill_picture_fn = chromatestsrc_fill_picture;
+    return init(ctx);
+}
+
+static int chromatestsrc_query_formats(AVFilterContext *ctx)
+{
+    static const enum AVPixelFormat pix_fmts[] = {
+        AV_PIX_FMT_GBRP,
+        AV_PIX_FMT_NONE
+    };
+
+    AVFilterFormats *fmts_list = ff_make_format_list(pix_fmts);
+    if (!fmts_list)
+        return AVERROR(ENOMEM);
+    return ff_set_common_formats(ctx, fmts_list);
+}
+
+static const AVFilterPad avfilter_vsrc_chromatestsrc_outputs[] = {
+    {
+        .name          = "default",
+        .type          = AVMEDIA_TYPE_VIDEO,
+        .request_frame = request_frame,
+        .config_props  = config_props,
+    },
+    { NULL }
+};
+
+AVFilter ff_vsrc_chromatestsrc = {
+    .name          = "chromatestsrc",
+    .description   = NULL_IF_CONFIG_SMALL("Generate chroma subsampling test."),
+    .priv_size     = sizeof(TestSourceContext),
+    .priv_class    = &chromatestsrc_class,
+    .init          = chromatestsrc_init,
+    .uninit        = uninit,
+    .query_formats = chromatestsrc_query_formats,
+    .inputs        = NULL,
+    .outputs       = avfilter_vsrc_chromatestsrc_outputs,
+};
+
+#endif /* CONFIG_CHROMATESTSRC_FILTER */

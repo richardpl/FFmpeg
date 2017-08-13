@@ -350,6 +350,7 @@ static void register_all(void)
     REGISTER_FILTER(ALLRGB,         allrgb,         vsrc);
     REGISTER_FILTER(ALLYUV,         allyuv,         vsrc);
     REGISTER_FILTER(CELLAUTO,       cellauto,       vsrc);
+    REGISTER_FILTER(CHROMATESTSRC,  chromatestsrc,  vsrc);
     REGISTER_FILTER(COLOR,          color,          vsrc);
     REGISTER_FILTER(COREIMAGESRC,   coreimagesrc,   vsrc);
     REGISTER_FILTER(FREI0R,         frei0r_src,     vsrc);
