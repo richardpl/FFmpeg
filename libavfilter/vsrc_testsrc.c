@@ -1756,6 +1756,48 @@ static void chromatestsrc_fill_picture(AVFilterContext *ctx, AVFrame *frame)
         bptr += bs;
         rptr += rs;
     }
+
+    y = frame->height / 8;
+
+    gptr = frame->data[0] + y * gs;
+    bptr = frame->data[1] + y * bs;
+    rptr = frame->data[2] + y * rs;
+
+    for (; y < 3 * frame->height / 8; y++) {
+        for (x = frame->width / 8; x < 3 * frame->width / 8; x++) {
+            gptr[x] = 0;
+            bptr[x] = (x & 1) != (y & 1) ? 0 : 255;
+            rptr[x] = (x & 1) == (y & 1) ? 0 : 255;
+        }
+
+        gptr += gs;
+        bptr += bs;
+        rptr += rs;
+    }
+
+    y = 5 * frame->height / 8;
+
+    gptr = frame->data[0] + y * gs;
+    bptr = frame->data[1] + y * bs;
+    rptr = frame->data[2] + y * rs;
+
+    for (; y < 7 * frame->height / 8; y++) {
+        for (x = frame->width / 8; x < 3 * frame->width / 8; x++) {
+            gptr[x] = 0;
+            bptr[x] = (y & 1) ? 255 : 0;
+            rptr[x] = (y & 1) ? 0 : 255;
+        }
+
+        for (x = 5 * frame->width / 8; x < 7 * frame->width / 8; x++) {
+            gptr[x] = 0;
+            bptr[x] = (x & 1) ? 255 : 0;
+            rptr[x] = (x & 1) ? 0 : 255;
+        }
+
+        gptr += gs;
+        bptr += bs;
+        rptr += rs;
+    }
 }
 
 static av_cold int chromatestsrc_init(AVFilterContext *ctx)
