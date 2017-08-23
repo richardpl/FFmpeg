@@ -18155,6 +18155,44 @@ vignette='PI/4+random(1)*PI/50':eval=frame
 
 @end itemize
 
+@section vmaf
+
+Obtain the VMAF (Video Multi-Method Assessment Fusion)
+score between two input videos.
+
+Both video inputs must have the same resolution and pixel format.
+
+The obtained VMAF score is printed through the logging system.
+
+If no model path is specified it uses the default model: @code{vmaf_v0.6.1.pkl}.
+
+The filter has following options:
+
+@table @option
+@item model_path
+Set the model path which is to be used for SVM.
+Default value: @code{"vmaf_v0.6.1.pkl.model"}
+
+@item enable_transform
+Enables transform for computing vmaf.
+
+@item pool
+Set the pool method to be used for computing vmaf (mean, min or harmonic mean).
+@end table
+
+On the below examples the input file @file{main.mpg} being processed is
+compared with the reference file @file{ref.mpg}.
+
+For example:
+@example
+ffmpeg -i main.mpg -i ref.mpg -lavfi vmaf -f null -
+@end example
+
+Example with options:
+@example
+ffmpeg -i main.mpg -i ref.mpg -lavfi vmaf="pool=min" -f null -
+@end example
+
 @section vmafmotion
 
 Obtain the average vmaf motion score of a video.
