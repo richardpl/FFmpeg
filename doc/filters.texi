@@ -5867,6 +5867,17 @@ For example to convert the input to SMPTE-240M, use the command:
 colorspace=smpte240m
 @end example
 
+@section convolve
+
+Apply 2D convolution of video stream in frequency domain using second stream as impulse.
+
+The filter accepts the following options:
+
+@table @option
+@item planes
+Set which planes to process.
+@end table
+
 @section convolution
 
 Apply convolution 3x3 or 5x5 filter.
