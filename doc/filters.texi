@@ -5789,6 +5789,21 @@ build.
 
 Below is a description of the currently available video filters.
 
+@section adm
+
+Obtain the average ADM/DLM (Detail Loss Metric) between two input videos.
+
+This filter takes two input videos.
+
+The obtained average ADM score is printed through the logging system.
+
+In the below example the input file @file{main.mpg} being processed is compared
+with the reference file @file{ref.mpg}.
+
+@example
+ffmpeg -i main.mpg -i ref.mpg -lavfi adm -f null -
+@end example
+
 @section alphaextract
 
 Extract the alpha component from the input as a grayscale video. This
