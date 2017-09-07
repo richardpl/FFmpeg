@@ -354,6 +354,7 @@ OBJS-$(CONFIG_NULLSRC_FILTER)                += vsrc_testsrc.o
 OBJS-$(CONFIG_RGBTESTSRC_FILTER)             += vsrc_testsrc.o
 OBJS-$(CONFIG_SMPTEBARS_FILTER)              += vsrc_testsrc.o
 OBJS-$(CONFIG_SMPTEHDBARS_FILTER)            += vsrc_testsrc.o
+OBJS-$(CONFIG_STARFIELD_FILTER)              += vsrc_starfield.o
 OBJS-$(CONFIG_TESTSRC_FILTER)                += vsrc_testsrc.o
 OBJS-$(CONFIG_TESTSRC2_FILTER)               += vsrc_testsrc.o
 OBJS-$(CONFIG_YUVTESTSRC_FILTER)             += vsrc_testsrc.o
