@@ -323,6 +323,7 @@ static void register_all(void)
     REGISTER_FILTER(SWAPRECT,       swaprect,       vf);
     REGISTER_FILTER(SWAPUV,         swapuv,         vf);
     REGISTER_FILTER(TBLEND,         tblend,         vf);
+    REGISTER_FILTER(TDISPLACE,      tdisplace,      vf);
     REGISTER_FILTER(TELECINE,       telecine,       vf);
     REGISTER_FILTER(THRESHOLD,      threshold,      vf);
     REGISTER_FILTER(THUMBNAIL,      thumbnail,      vf);

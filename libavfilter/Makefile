@@ -312,6 +312,7 @@ OBJS-$(CONFIG_SUPER2XSAI_FILTER)             += vf_super2xsai.o
 OBJS-$(CONFIG_SWAPRECT_FILTER)               += vf_swaprect.o
 OBJS-$(CONFIG_SWAPUV_FILTER)                 += vf_swapuv.o
 OBJS-$(CONFIG_TBLEND_FILTER)                 += vf_blend.o framesync2.o
+OBJS-$(CONFIG_TDISPLACE_FILTER)              += vf_tdisplace.o
 OBJS-$(CONFIG_TELECINE_FILTER)               += vf_telecine.o
 OBJS-$(CONFIG_THRESHOLD_FILTER)              += vf_threshold.o framesync2.o
 OBJS-$(CONFIG_THUMBNAIL_FILTER)              += vf_thumbnail.o
