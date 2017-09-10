@@ -336,6 +336,7 @@ static void register_all(void)
     REGISTER_MUXDEMUX(W64,              w64);
     REGISTER_MUXDEMUX(WAV,              wav);
     REGISTER_DEMUXER (WC3,              wc3);
+    REGISTER_DEMUXER (WCAP,             wcap);
     REGISTER_MUXER   (WEBM,             webm);
     REGISTER_MUXDEMUX(WEBM_DASH_MANIFEST, webm_dash_manifest);
     REGISTER_MUXER   (WEBM_CHUNK,       webm_chunk);

@@ -513,6 +513,7 @@ OBJS-$(CONFIG_W64_MUXER)                 += wavenc.o w64.o
 OBJS-$(CONFIG_WAV_DEMUXER)               += wavdec.o pcm.o
 OBJS-$(CONFIG_WAV_MUXER)                 += wavenc.o
 OBJS-$(CONFIG_WC3_DEMUXER)               += wc3movie.o
+OBJS-$(CONFIG_WCAP_DEMUXER)              += wcapdec.o
 OBJS-$(CONFIG_WEBM_MUXER)                += matroskaenc.o matroska.o \
                                             avc.o hevc.o \
                                             flacenc_header.o avlanguage.o \

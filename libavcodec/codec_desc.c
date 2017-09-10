@@ -1417,6 +1417,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .long_name = NULL_IF_CONFIG_SMALL("Gremlin Digital Video"),
         .props     = AV_CODEC_PROP_LOSSY,
     },
+    {
+        .id        = AV_CODEC_ID_WCAP,
+        .type      = AVMEDIA_TYPE_VIDEO,
+        .name      = "wcap",
+        .long_name = NULL_IF_CONFIG_SMALL("Weston capture"),
+        .props     = AV_CODEC_PROP_LOSSLESS,
+    },
 
     /* image codecs */
     {

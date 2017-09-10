@@ -634,6 +634,7 @@ OBJS-$(CONFIG_VPLAYER_DECODER)         += textdec.o ass.o
 OBJS-$(CONFIG_VQA_DECODER)             += vqavideo.o
 OBJS-$(CONFIG_WAVPACK_DECODER)         += wavpack.o
 OBJS-$(CONFIG_WAVPACK_ENCODER)         += wavpackenc.o
+OBJS-$(CONFIG_WCAP_DECODER)            += wcapdec.o
 OBJS-$(CONFIG_WEBP_DECODER)            += webp.o
 OBJS-$(CONFIG_WEBVTT_DECODER)          += webvttdec.o ass.o
 OBJS-$(CONFIG_WEBVTT_ENCODER)          += webvttenc.o ass_split.o
@@ -980,6 +981,7 @@ OBJS-$(CONFIG_VC1_PARSER)              += vc1_parser.o vc1.o vc1data.o  \
 OBJS-$(CONFIG_VP3_PARSER)              += vp3_parser.o
 OBJS-$(CONFIG_VP8_PARSER)              += vp8_parser.o
 OBJS-$(CONFIG_VP9_PARSER)              += vp9_parser.o
+OBJS-$(CONFIG_WCAP_PARSER)             += wcap_parser.o
 OBJS-$(CONFIG_XMA_PARSER)              += xma_parser.o
 
 # bitstream filters
