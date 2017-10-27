@@ -1603,6 +1603,16 @@ void ff_print_debug_info2(AVCodecContext *avctx, AVFrame *pict, uint8_t *mbskip_
         }
     }
 
+    if (mb_height && mb_width) {
+        AVFrameSideData *sd;
+
+        av_log(avctx, AV_LOG_DEBUG, "Adding %d MB types info to frame %d\n", mb_width * mb_height, avctx->frame_number);
+        sd = av_frame_new_side_data(pict, AV_FRAME_DATA_MACROBLOCK_TYPES, mb_width * mb_height * sizeof(uint32_t));
+        if (!sd)
+            return;
+        memcpy(sd->data, mbtype_table, mb_width * mb_height * sizeof(uint32_t));
+    }
+
 #if FF_API_DEBUG_MV
     if ((avctx->debug & (FF_DEBUG_VIS_QP | FF_DEBUG_VIS_MB_TYPE)) ||
         (avctx->debug_mv)) {

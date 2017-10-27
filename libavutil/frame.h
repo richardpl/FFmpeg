@@ -141,6 +141,10 @@ enum AVFrameSideDataType {
      * metadata key entry "name".
      */
     AV_FRAME_DATA_ICC_PROFILE,
+    /**
+     * Macroblock types exported by some codecs.
+     */
+    AV_FRAME_DATA_MACROBLOCK_TYPES,
 };
 
 enum AVActiveFormatDescription {

@@ -29,6 +29,7 @@
  * TODO: segmentation
  */
 
+#include "libavutil/avassert.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/motion_vector.h"
 #include "libavutil/opt.h"
@@ -44,9 +45,23 @@
 #define FRAME_TYPE_P (1<<1)
 #define FRAME_TYPE_B (1<<2)
 
+#define IS_PCM(a)           ((a) & (1 << 2))
+#define IS_INTRA(a)         ((a) & 7)
+#define IS_ACPRED(a)        ((a) & (1 << 9))
+#define IS_INTRA16x16(a)    ((a) & (1 << 1))
+#define IS_INTRA4x4(a)      ((a) & (1 << 0))
+#define IS_DIRECT(a)        ((a) & (1 << 8))
+#define IS_SKIP(a)          ((a) & (1 << 11))
+#define IS_GMC(a)           ((a) & (1 << 10))
+#define USES_LIST(a, list)  ((a) & (((1 << 12) | (1 << 13)) << (2 * (list))))
+#define IS_8X8(a)           ((a) & ((1 << 6)))
+#define IS_16X8(a)          ((a) & ((1 << 4)))
+#define IS_8X16(a)          ((a) & ((1 << 5)))
+
 typedef struct CodecViewContext {
     const AVClass *class;
     unsigned mv;
+    unsigned mbtypes;
     unsigned frame_type;
     unsigned mv_type;
     int hsub, vsub;
@@ -72,6 +87,7 @@ static const AVOption codecview_options[] = {
         CONST("if", "I-frames", FRAME_TYPE_I, "frame_type"),
         CONST("pf", "P-frames", FRAME_TYPE_P, "frame_type"),
         CONST("bf", "B-frames", FRAME_TYPE_B, "frame_type"),
+    { "mb", "visualize macroblock types", OFFSET(mbtypes), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS, },
     { NULL }
 };
 
@@ -273,6 +289,95 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
                         draw_arrow(frame->data[0], mv->dst_x, mv->dst_y, mv->src_x, mv->src_y,
                                    frame->width, frame->height, frame->linesize[0],
                                    100, 0, direction);
+            }
+        }
+    }
+
+    if (s->mbtypes) {
+        AVFrameSideData *sd = av_frame_get_side_data(frame, AV_FRAME_DATA_MACROBLOCK_TYPES);
+        if (sd) {
+            int mb_height = (frame->height + 31) / 32 * 2;
+            int mb_width = (frame->width + 15) / 16;
+            int block_height = 16 >> 1;
+            int mb_stride = mb_width + 1;
+            int mb_y, mb_x;
+            uint32_t *mbtype_table = (uint32_t *)sd->data;
+
+            for (mb_y = 0; mb_y < mb_height; mb_y++) {
+                for (mb_x = 0; mb_x < mb_width; mb_x++) {
+                    const int mb_index = mb_x + mb_y * mb_stride;
+                  /*{
+                        uint64_t c = (qscale_table[mb_index] * 128 / 31) *
+                                 0x0101010101010101ULL;
+                        int y;
+                        for (y = 0; y < block_height; y++) {
+                            *(uint64_t *)(frame->data[1] + 8 * mb_x +
+                                          (block_height * mb_y + y) *
+                                          frame->linesize[1]) = c;
+                            *(uint64_t *)(frame->data[2] + 8 * mb_x +
+                                          (block_height * mb_y + y) *
+                                          frame->linesize[2]) = c;
+                        }
+                    } */
+                    {
+                        int mb_type = mbtype_table[mb_index];
+                        uint64_t u,v;
+                        int y;
+
+#define COLOR(theta, r) \
+    u = (int)(128 + r * cos(theta * M_PI / 180)); \
+    v = (int)(128 + r * sin(theta * M_PI / 180));
+
+                        u = v = 128;
+                        if (IS_PCM(mb_type)) {
+                            COLOR(120, 48)
+                        } else if ((IS_INTRA(mb_type) && IS_ACPRED(mb_type)) ||
+                                   IS_INTRA16x16(mb_type)) {
+                            COLOR(30, 48)
+                        } else if (IS_INTRA4x4(mb_type)) {
+                            COLOR(90, 48)
+                        } else if (IS_DIRECT(mb_type) && IS_SKIP(mb_type)) {
+                            COLOR(120, 48)
+                        } else if (IS_DIRECT(mb_type)) {
+                            COLOR(150, 48)
+                        } else if (IS_GMC(mb_type) && IS_SKIP(mb_type)) {
+                            COLOR(170, 48)
+                        } else if (IS_GMC(mb_type)) {
+                            COLOR(190, 48)
+                        } else if (IS_SKIP(mb_type)) {
+                            COLOR(180, 48)
+                        } else if (!USES_LIST(mb_type, 1)) {
+                            COLOR(240, 48)
+                        } else if (!USES_LIST(mb_type, 0)) {
+                            COLOR(0, 48)
+                        } else {
+                            av_assert2(USES_LIST(mb_type, 0) && USES_LIST(mb_type, 1));
+                            COLOR(300,48)
+                        }
+
+                        u *= 0x0101010101010101ULL;
+                        v *= 0x0101010101010101ULL;
+                        for (y = 0; y < block_height; y++) {
+                            *(uint64_t *)(frame->data[1] + 8 * mb_x +
+                                          (block_height * mb_y + y) * frame->linesize[1]) = u;
+                            *(uint64_t *)(frame->data[2] + 8 * mb_x +
+                                          (block_height * mb_y + y) * frame->linesize[2]) = v;
+                        }
+
+                        // segmentation
+                        if (IS_8X8(mb_type) || IS_16X8(mb_type)) {
+                            *(uint64_t *)(frame->data[0] + 16 * mb_x + 0 +
+                                          (16 * mb_y + 8) * frame->linesize[0]) ^= 0x8080808080808080ULL;
+                            *(uint64_t *)(frame->data[0] + 16 * mb_x + 8 +
+                                          (16 * mb_y + 8) * frame->linesize[0]) ^= 0x8080808080808080ULL;
+                        }
+                        if (IS_8X8(mb_type) || IS_8X16(mb_type)) {
+                            for (y = 0; y < 16; y++)
+                                frame->data[0][16 * mb_x + 8 + (16 * mb_y + y) *
+                                              frame->linesize[0]] ^= 0x80;
+                        }
+                    }
+                }
             }
         }
     }
