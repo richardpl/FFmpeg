@@ -14057,6 +14057,10 @@ Set stereoscopic image format of input.
 
 Available values for input image formats are:
 @table @samp
+@item auto
+set input format using frame side data
+If such data is not available filter will return unchanged input.
+
 @item sbsl
 side by side parallel (left eye left, right eye right)
 

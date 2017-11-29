@@ -25,6 +25,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/pixdesc.h"
+#include "libavutil/stereo3d.h"
 #include "avfilter.h"
 #include "drawutils.h"
 #include "formats.h"
@@ -47,8 +48,8 @@ enum StereoCode {
     ANAGLYPH_YB_DUBOIS, // anaglyph yellow/blue dubois
     ANAGLYPH_RB_GRAY,   // anaglyph red/blue gray
     ANAGLYPH_RG_GRAY,   // anaglyph red/green gray
-    MONO_L,             // mono output for debugging (left eye only)
-    MONO_R,             // mono output for debugging (right eye only)
+    MONO_L,             // mono output (left eye only)
+    MONO_R,             // mono output (right eye only)
     INTERLEAVE_ROWS_LR, // row-interleave (left eye has top row)
     INTERLEAVE_ROWS_RL, // row-interleave (right eye has top row)
     SIDE_BY_SIDE_LR,    // side by side parallel (left eye left, right eye right)
@@ -66,7 +67,8 @@ enum StereoCode {
     INTERLEAVE_COLS_LR, // column-interleave (left eye first, right eye second)
     INTERLEAVE_COLS_RL, // column-interleave (right eye first, left eye second)
     HDMI,               // HDMI frame pack (left eye first, right eye second)
-    STEREO_CODE_COUNT   // TODO: needs autodetection
+    AUTO,               // guess input format using frame's metadata.
+    STEREO_CODE_COUNT
 };
 
 typedef struct StereoComponent {
@@ -173,6 +175,7 @@ static const AVOption stereo3d_options[] = {
     { "irr",   "interleave rows right first",         0, AV_OPT_TYPE_CONST, {.i64=INTERLEAVE_ROWS_RL}, 0, 0, FLAGS, "in" },
     { "icl",   "interleave columns left first",       0, AV_OPT_TYPE_CONST, {.i64=INTERLEAVE_COLS_LR}, 0, 0, FLAGS, "in" },
     { "icr",   "interleave columns right first",      0, AV_OPT_TYPE_CONST, {.i64=INTERLEAVE_COLS_RL}, 0, 0, FLAGS, "in" },
+    { "auto",  "guess using frame metadata",          0, AV_OPT_TYPE_CONST, {.i64=AUTO},               0, 0, FLAGS, "in" },
     { "out",   "set output format", OFFSET(out.format),  AV_OPT_TYPE_INT,   {.i64=ANAGLYPH_RC_DUBOIS}, 0, STEREO_CODE_COUNT-1, FLAGS, "out"},
     { "ab2l",  "above below half height left first",  0, AV_OPT_TYPE_CONST, {.i64=ABOVE_BELOW_2_LR},   0, 0, FLAGS, "out" },
     { "ab2r",  "above below half height right first", 0, AV_OPT_TYPE_CONST, {.i64=ABOVE_BELOW_2_RL},   0, 0, FLAGS, "out" },
@@ -365,6 +368,9 @@ static int config_output(AVFilterLink *outlink)
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(outlink->format);
     int ret;
     s->aspect = inlink->sample_aspect_ratio;
+
+    if (s->in.format == AUTO || (s->in.format == s->out.format))
+        return 0;
 
     switch (s->in.format) {
     case INTERLEAVE_COLS_LR:
@@ -669,6 +675,31 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *inpicref)
     AVFrame *out, *oleft, *oright, *ileft, *iright;
     int out_off_left[4], out_off_right[4];
     int i, ret;
+
+    if (s->in.format == AUTO) {
+        AVFrameSideData *sd = av_frame_get_side_data(inpicref, AV_FRAME_DATA_STEREO3D);
+        AVFilterLink *link;
+
+        if (sd) {
+            AVStereo3D *s3d = (AVStereo3D *)sd->data;
+
+            switch (s3d->type) {
+            case AV_STEREO3D_SIDEBYSIDE:          s->in.format = SIDE_BY_SIDE_LR;    break;
+            case AV_STEREO3D_SIDEBYSIDE_QUINCUNX: s->in.format = SIDE_BY_SIDE_LR;    break;
+            case AV_STEREO3D_TOPBOTTOM:           s->in.format = ABOVE_BELOW_LR;     break;
+            case AV_STEREO3D_CHECKERBOARD:        s->in.format = CHECKERBOARD_LR;    break;
+            case AV_STEREO3D_FRAMESEQUENCE:       s->in.format = ALTERNATING_LR;     break;
+            case AV_STEREO3D_LINES:               s->in.format = INTERLEAVE_ROWS_LR; break;
+            case AV_STEREO3D_COLUMNS:             s->in.format = INTERLEAVE_COLS_LR; break;
+            default:                              s->in.format = s->out.format = MONO_L;
+            };
+        } else {
+            s->in.format = s->out.format = MONO_L;
+        }
+
+        if ((ret = ff_reconfig_links(ctx)) < 0)
+            return ret;
+    }
 
     if (s->in.format == s->out.format)
         return ff_filter_frame(outlink, inpicref);

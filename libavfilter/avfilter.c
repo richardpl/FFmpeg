@@ -378,6 +378,36 @@ int avfilter_config_links(AVFilterContext *filter)
     return 0;
 }
 
+static int reset_links(AVFilterContext *filter)
+{
+    int i, ret;
+
+    if (!filter)
+        return 0;
+
+    for (i = 0; i < filter->nb_outputs; i++) {
+        AVFilterLink *link = filter->outputs[i];
+
+        link->init_state = AVLINK_UNINIT;
+        link->frame_rate.num = link->frame_rate.den = 0;
+        link->w = link->h = 0;
+
+        ret = reset_links(link->dst);
+        if (ret < 0)
+            return ret;
+    }
+
+    if (!i)
+        return avfilter_config_links(filter);
+
+    return 0;
+}
+
+int ff_reconfig_links(AVFilterContext *filter)
+{
+    return reset_links(filter);
+}
+
 void ff_tlog_link(void *ctx, AVFilterLink *link, int end)
 {
     if (link->type == AVMEDIA_TYPE_VIDEO) {

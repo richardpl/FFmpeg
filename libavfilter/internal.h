@@ -411,4 +411,6 @@ static inline int ff_norm_qscale(int qscale, int type)
  */
 int ff_filter_get_nb_threads(AVFilterContext *ctx);
 
+int ff_reconfig_links(AVFilterContext *ctx);
+
 #endif /* AVFILTER_INTERNAL_H */
