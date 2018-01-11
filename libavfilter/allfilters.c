@@ -50,6 +50,7 @@ extern AVFilter ff_af_ainterleave;
 extern AVFilter ff_af_alimiter;
 extern AVFilter ff_af_allpass;
 extern AVFilter ff_af_aloop;
+extern AVFilter ff_af_ambisonic;
 extern AVFilter ff_af_amerge;
 extern AVFilter ff_af_ametadata;
 extern AVFilter ff_af_amix;
