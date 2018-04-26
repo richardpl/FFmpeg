@@ -386,10 +386,10 @@ static int decode_slice_luma(AVCodecContext *avctx, SliceContext *slice,
 
     block = blocks;
     for (i = 0; i < slice->mb_count; i++) {
-        ctx->prodsp.idct_put(dst, dst_stride, block+(0<<6), qmat);
-        ctx->prodsp.idct_put(dst             +8, dst_stride, block+(1<<6), qmat);
-        ctx->prodsp.idct_put(dst+4*dst_stride  , dst_stride, block+(2<<6), qmat);
-        ctx->prodsp.idct_put(dst+4*dst_stride+8, dst_stride, block+(3<<6), qmat);
+        ctx->prodsp.idct_put10(dst, dst_stride, block+(0<<6), qmat);
+        ctx->prodsp.idct_put10(dst             +8, dst_stride, block+(1<<6), qmat);
+        ctx->prodsp.idct_put10(dst+4*dst_stride  , dst_stride, block+(2<<6), qmat);
+        ctx->prodsp.idct_put10(dst+4*dst_stride+8, dst_stride, block+(3<<6), qmat);
         block += 4*64;
         dst += 16;
     }
@@ -421,8 +421,8 @@ static int decode_slice_chroma(AVCodecContext *avctx, SliceContext *slice,
     block = blocks;
     for (i = 0; i < slice->mb_count; i++) {
         for (j = 0; j < log2_blocks_per_mb; j++) {
-            ctx->prodsp.idct_put(dst,              dst_stride, block+(0<<6), qmat);
-            ctx->prodsp.idct_put(dst+4*dst_stride, dst_stride, block+(1<<6), qmat);
+            ctx->prodsp.idct_put10(dst,              dst_stride, block+(0<<6), qmat);
+            ctx->prodsp.idct_put10(dst+4*dst_stride, dst_stride, block+(1<<6), qmat);
             block += 2*64;
             dst += 8;
         }

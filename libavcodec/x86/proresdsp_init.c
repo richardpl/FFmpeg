@@ -37,12 +37,12 @@ av_cold void ff_proresdsp_init_x86(ProresDSPContext *dsp, AVCodecContext *avctx)
 
     if (EXTERNAL_SSE2(cpu_flags)) {
         dsp->idct_permutation_type = FF_IDCT_PERM_TRANSPOSE;
-        dsp->idct_put = ff_prores_idct_put_10_sse2;
+        dsp->idct_put10 = ff_prores_idct_put_10_sse2;
     }
 
     if (EXTERNAL_AVX(cpu_flags)) {
         dsp->idct_permutation_type = FF_IDCT_PERM_TRANSPOSE;
-        dsp->idct_put = ff_prores_idct_put_10_avx;
+        dsp->idct_put10 = ff_prores_idct_put_10_avx;
     }
 #endif /* ARCH_X86_64 */
 }

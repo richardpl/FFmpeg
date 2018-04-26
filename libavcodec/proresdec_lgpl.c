@@ -75,6 +75,8 @@ typedef struct ProresContext {
     int        num_x_mbs;
     int        num_y_mbs;
     int        alpha_info;
+
+    void (*idct_put)(uint16_t *out, ptrdiff_t linesize, int16_t *block, const int16_t *qmat);
 } ProresContext;
 
 
@@ -85,7 +87,6 @@ static av_cold int decode_init(AVCodecContext *avctx)
     ctx->total_slices     = 0;
     ctx->slice_data       = NULL;
 
-    avctx->bits_per_raw_sample = PRORES_BITS_PER_SAMPLE;
     ff_proresdsp_init(&ctx->dsp, avctx);
 
     ctx->scantable_type = -1;   // set scantable type to uninitialized
@@ -144,12 +145,16 @@ static int decode_frame_header(ProresContext *ctx, const uint8_t *buf,
 
     switch (ctx->chroma_factor) {
     case 2:
+        ctx->idct_put = ctx->dsp.idct_put10;
+        avctx->bits_per_raw_sample = 10;
         avctx->pix_fmt = ctx->alpha_info ? AV_PIX_FMT_YUVA422P10
                                          : AV_PIX_FMT_YUV422P10;
         break;
     case 3:
+        ctx->idct_put = ctx->dsp.idct_put12;
+        avctx->bits_per_raw_sample = 12;
         avctx->pix_fmt = ctx->alpha_info ? AV_PIX_FMT_YUVA444P10
-                                         : AV_PIX_FMT_YUV444P10;
+                                         : AV_PIX_FMT_YUV444P12;
         break;
     default:
         av_log(avctx, AV_LOG_ERROR,
@@ -452,29 +457,29 @@ static int decode_slice_plane(ProresContext *ctx, ProresThreadData *td,
 
     if (!is_chroma) {
         for (mb_num = 0; mb_num < mbs_per_slice; mb_num++, out_ptr += blocks_per_mb * 4) {
-            ctx->dsp.idct_put(out_ptr,                    linesize, block_ptr, qmat);
+            ctx->idct_put(out_ptr,                    linesize, block_ptr, qmat);
             block_ptr += 64;
             if (blocks_per_mb > 2) {
-                ctx->dsp.idct_put(out_ptr + 8,            linesize, block_ptr, qmat);
+                ctx->idct_put(out_ptr + 8,            linesize, block_ptr, qmat);
                 block_ptr += 64;
             }
-            ctx->dsp.idct_put(out_ptr + linesize * 4,     linesize, block_ptr, qmat);
+            ctx->idct_put(out_ptr + linesize * 4,     linesize, block_ptr, qmat);
             block_ptr += 64;
             if (blocks_per_mb > 2) {
-                ctx->dsp.idct_put(out_ptr + linesize * 4 + 8, linesize, block_ptr, qmat);
+                ctx->idct_put(out_ptr + linesize * 4 + 8, linesize, block_ptr, qmat);
                 block_ptr += 64;
             }
         }
     } else {
         for (mb_num = 0; mb_num < mbs_per_slice; mb_num++, out_ptr += blocks_per_mb * 4) {
-            ctx->dsp.idct_put(out_ptr,                    linesize, block_ptr, qmat);
+            ctx->idct_put(out_ptr,                    linesize, block_ptr, qmat);
             block_ptr += 64;
-            ctx->dsp.idct_put(out_ptr + linesize * 4,     linesize, block_ptr, qmat);
+            ctx->idct_put(out_ptr + linesize * 4,     linesize, block_ptr, qmat);
             block_ptr += 64;
             if (blocks_per_mb > 2) {
-                ctx->dsp.idct_put(out_ptr + 8,            linesize, block_ptr, qmat);
+                ctx->idct_put(out_ptr + 8,            linesize, block_ptr, qmat);
                 block_ptr += 64;
-                ctx->dsp.idct_put(out_ptr + linesize * 4 + 8, linesize, block_ptr, qmat);
+                ctx->idct_put(out_ptr + linesize * 4 + 8, linesize, block_ptr, qmat);
                 block_ptr += 64;
             }
         }

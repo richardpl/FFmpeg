@@ -31,6 +31,8 @@ SECTION_RODATA
 pw_88:      times 8 dw 0x2008
 cextern pw_1
 cextern pw_4
+cextern pw_8
+cextern pw_16
 cextern pw_1019
 ; Below are defined in simple_idct10.asm built from selecting idctdsp
 cextern w4_plus_w2_hi

@@ -96,9 +96,15 @@
 #define W6 17734
 #define W7 9041
 
+#   ifdef EXTRA_SHIFT
+#define ROW_SHIFT 15
+#define COL_SHIFT 16
+#define DC_SHIFT  0
+#   else
 #define ROW_SHIFT 16
 #define COL_SHIFT 17
 #define DC_SHIFT -1
+#   endif
 # endif
 
 #define MUL(a, b)    ((a) * (b))
