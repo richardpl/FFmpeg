@@ -8272,8 +8272,10 @@ Mix the colors to create a paint/cartoon effect.
 @item canny
 Apply Canny edge detector on all selected planes.
 @end table
-
 Default value is @var{wires}.
+
+@item planes
+Select planes for filtering. By default all available planes are filtered.
 @end table
 
 @subsection Examples
