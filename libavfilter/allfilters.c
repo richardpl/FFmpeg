@@ -143,6 +143,7 @@ extern AVFilter ff_vf_bitplanenoise;
 extern AVFilter ff_vf_blackdetect;
 extern AVFilter ff_vf_blackframe;
 extern AVFilter ff_vf_blend;
+extern AVFilter ff_vf_bm3d;
 extern AVFilter ff_vf_boxblur;
 extern AVFilter ff_vf_bwdif;
 extern AVFilter ff_vf_chromakey;
