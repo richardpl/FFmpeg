@@ -52,6 +52,7 @@ typedef struct NLMeansContext {
     int chroma_w, chroma_h;
     double pdiff_scale;                         // invert of the filtering parameter (sigma*10) squared
     double sigma;                               // denoising strength
+    float amount;                               // amount of denoising
     int patch_size,    patch_hsize;             // patch size and half size
     int patch_size_uv, patch_hsize_uv;          // patch size and half size for chroma planes
     int research_size,    research_hsize;       // research size and half size
@@ -76,6 +77,7 @@ static const AVOption nlmeans_options[] = {
     { "pc", "patch size for chroma planes", OFFSET(patch_size_uv), AV_OPT_TYPE_INT, { .i64 = 0 },     0, 99, FLAGS },
     { "r",  "research window",                   OFFSET(research_size),    AV_OPT_TYPE_INT, { .i64 = 7*2+1 }, 0, 99, FLAGS },
     { "rc", "research window for chroma planes", OFFSET(research_size_uv), AV_OPT_TYPE_INT, { .i64 = 0 },     0, 99, FLAGS },
+    { "a",  "denoising amount", OFFSET(amount), AV_OPT_TYPE_FLOAT, { .dbl = 1.0 }, 0.01,  1.0, FLAGS },
     { NULL }
 };
 
@@ -415,15 +417,15 @@ static int nlmeans_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs
 static void weight_averages(uint8_t *dst, ptrdiff_t dst_linesize,
                             const uint8_t *src, ptrdiff_t src_linesize,
                             struct weighted_avg *wa, ptrdiff_t wa_linesize,
-                            int w, int h)
+                            int w, int h, float amount)
 {
     int x, y;
 
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {
             // Also weight the centered pixel
-            wa[x].total_weight += 1.f;
-            wa[x].sum += 1.f * src[x];
+            wa[x].total_weight += amount;
+            wa[x].sum += amount * src[x];
             dst[x] = av_clip_uint8(wa[x].sum / wa[x].total_weight);
         }
         dst += dst_linesize;
@@ -470,7 +472,7 @@ static int nlmeans_plane(AVFilterContext *ctx, int w, int h, int p, int r,
     }
 
     weight_averages(dst, dst_linesize, src, src_linesize,
-                    s->wa, s->wa_linesize, w, h);
+                    s->wa, s->wa_linesize, w, h, 1.f / s->amount);
 
     return 0;
 }
