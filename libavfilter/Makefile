@@ -56,6 +56,7 @@ OBJS-$(CONFIG_AMERGE_FILTER)                 += af_amerge.o
 OBJS-$(CONFIG_AMETADATA_FILTER)              += f_metadata.o
 OBJS-$(CONFIG_AMIX_FILTER)                   += af_amix.o
 OBJS-$(CONFIG_ANEQUALIZER_FILTER)            += af_anequalizer.o
+OBJS-$(CONFIG_ANLMEANS_FILTER)               += af_anlmeans.o
 OBJS-$(CONFIG_ANULL_FILTER)                  += af_anull.o
 OBJS-$(CONFIG_APAD_FILTER)                   += af_apad.o
 OBJS-$(CONFIG_APERMS_FILTER)                 += f_perms.o
