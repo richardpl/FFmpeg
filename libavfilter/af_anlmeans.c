@@ -226,7 +226,7 @@ static void compute_v(NLMeansChannel *c, const float *f,
             const float f1 = f[S + 1 - u + v];
             const float f2 = f[v];
 
-            m[v] = (f1 * f2);
+            m[v] = f1 * f2;
         }
 
         fftwf_execute_dft_r2c(c->planf, m, c->matrixc);
