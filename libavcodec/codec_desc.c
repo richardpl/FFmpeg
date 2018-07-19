@@ -1856,6 +1856,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .long_name = NULL_IF_CONFIG_SMALL("Digital Pictures SGA Video"),
         .props     = AV_CODEC_PROP_LOSSY,
     },
+    {
+        .id        = AV_CODEC_ID_BINKVIDEO2,
+        .type      = AVMEDIA_TYPE_VIDEO,
+        .name      = "binkvideo2",
+        .long_name = NULL_IF_CONFIG_SMALL("Bink video 2"),
+        .props     = AV_CODEC_PROP_LOSSY,
+    },
 
     /* various PCM "codecs" */
     {

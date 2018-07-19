@@ -61,6 +61,7 @@ extern AVCodec ff_ayuv_decoder;
 extern AVCodec ff_bethsoftvid_decoder;
 extern AVCodec ff_bfi_decoder;
 extern AVCodec ff_bink_decoder;
+extern AVCodec ff_bink2_decoder;
 extern AVCodec ff_bitpacked_decoder;
 extern AVCodec ff_bmp_encoder;
 extern AVCodec ff_bmp_decoder;
