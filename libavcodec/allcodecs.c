@@ -158,6 +158,7 @@ extern AVCodec ff_indeo3_decoder;
 extern AVCodec ff_indeo4_decoder;
 extern AVCodec ff_indeo5_decoder;
 extern AVCodec ff_interplay_video_decoder;
+extern AVCodec ff_imm4_decoder;
 extern AVCodec ff_jpeg2000_encoder;
 extern AVCodec ff_jpeg2000_decoder;
 extern AVCodec ff_jpegls_encoder;
