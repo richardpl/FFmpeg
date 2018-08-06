@@ -341,7 +341,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
         return AVERROR_INVALIDDATA;
 
     av_fast_malloc(&s->bitstream, &s->bitstream_size,
-                   avpkt->size + AV_INPUT_BUFFER_PADDING_SIZE);
+                   avpkt->size + 3 + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!s->bitstream)
         return AVERROR(ENOMEM);
 
