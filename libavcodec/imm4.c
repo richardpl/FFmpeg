@@ -35,6 +35,7 @@ typedef struct IMM4Context {
     BswapDSPContext bdsp;
     GetBitContext  gb;
 
+    AVFrame *prev_frame;
     uint8_t *bitstream;
     int bitstream_size;
 
@@ -275,6 +276,58 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
     return 0;
 }
 
+static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame)
+{
+    IMM4Context *s = avctx->priv_data;
+    int ret, x, y;
+
+    s->field_2B = table_0[s->factor];
+    s->factor = s->field_2B * 2;
+    s->field_30 = 0;
+
+    for (y = 0; y < avctx->height; y += 16) {
+        for (x = 0; x < avctx->width; x += 16) {
+            unsigned value2, value, skip;
+            int flag;
+
+            value = show_bits(gb, 9);
+            value >>= 3;
+            skip = table_3[2 * value + 1];
+            value = table_3[2 * value];
+            av_assert0(skip > 0);
+            skip_bits(gb, skip);
+
+            s->field_28 = value & 0x07;
+            value = value >> 4;
+            flag = get_bits1(gb);
+
+            value2 = get_value2(gb, 1);
+
+            value = value | (value2 << 2);
+            ret = decode_blocks(avctx, gb, value, flag);
+            if (ret < 0)
+                return ret;
+
+            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
+                             frame->linesize[0], s->block[0]);
+            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
+                             frame->linesize[0], s->block[1]);
+            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                             frame->linesize[0], s->block[2]);
+            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                             frame->linesize[0], s->block[3]);
+            s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                             frame->linesize[1], s->block[4]);
+            s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                             frame->linesize[2], s->block[5]);
+        }
+    }
+
+    printf("gb: %d\n", get_bits_left(gb));
+
+    return 0;
+}
+
 static int decode_frame(AVCodecContext *avctx, void *data,
                         int *got_frame, AVPacket *avpkt)
 {
@@ -341,20 +394,29 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     if (s->factor > 2)
         return AVERROR_INVALIDDATA;
 
-    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
+    if ((ret = ff_get_buffer(avctx, frame, AV_GET_BUFFER_FLAG_REF)) < 0)
         return ret;
 
     switch (type) {
-    case 0x12250926:
-        break;
     case 0x19781977:
+        frame->key_frame = 1;
+        frame->pict_type = AV_PICTURE_TYPE_I;
         ret = decode_intra(avctx, gb, frame);
+        break;
+    case 0x12250926:
+        frame->key_frame = 0;
+        frame->pict_type = AV_PICTURE_TYPE_P;
+        ret = decode_inter(avctx, gb, frame);
         break;
     default:
         return AVERROR_INVALIDDATA;
     }
 
     if (ret < 0)
+        return ret;
+
+    av_frame_unref(s->prev_frame);
+    if ((ret = av_frame_ref(s->prev_frame, frame)) < 0)
         return ret;
 
     *got_frame = 1;
@@ -371,6 +433,10 @@ static av_cold int decode_init(AVCodecContext *avctx)
     ff_bswapdsp_init(&s->bdsp);
     ff_idctdsp_init(&s->idsp, avctx);
 
+    s->prev_frame = av_frame_alloc();
+    if (!s->prev_frame)
+        return AVERROR(ENOMEM);
+
     return 0;
 }
 
@@ -378,6 +444,7 @@ static av_cold int decode_close(AVCodecContext *avctx)
 {
     IMM4Context *s = avctx->priv_data;
 
+    av_frame_free(&s->prev_frame);
     av_freep(&s->bitstream);
     s->bitstream_size = 0;
 
