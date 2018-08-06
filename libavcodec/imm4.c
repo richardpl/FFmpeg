@@ -48,11 +48,11 @@ typedef struct IMM4Context {
     IDCTDSPContext idsp;
 } IMM4Context;
 
-static uint8_t table_0[] = {
+static const uint8_t table_0[] = {
     12, 9, 6,
 };
 
-static int16_t table_3[] = {
+static const int16_t table_3[] = {
   -1, 0, 20, 6, 36, 6, 52, 6, 4, 4, 4, 4, 4,
   4, 4, 4, 19, 3, 19, 3, 19, 3, 19, 3, 19, 3, 19,
   3, 19, 3, 19, 3, 35, 3, 35, 3, 35, 3, 35, 3, 35,
@@ -64,7 +64,7 @@ static int16_t table_3[] = {
   3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
 };
 
-static int16_t table_5[] = {
+static const int16_t table_5[] = {
   -1, 0, -1, 0, 6, 6, 9, 6, 8, 5, 8, 5, 4, 5, 4, 5, 2, 5, 2,
   5, 1, 5, 1, 5, 0, 4, 0, 4, 0, 4, 0, 4, 12, 4, 12, 4, 12, 4, 12,
   4, 10, 4, 10, 4, 10, 4, 10, 4, 14, 4, 14, 4, 14, 4, 14, 4, 5, 4,
@@ -74,7 +74,7 @@ static int16_t table_5[] = {
   2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2,
 };
 
-static uint16_t table_7[304] = {
+static const uint16_t table_7[304] = {
   0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 16514u, 16514u, 16387u, 16387u,
   11u, 11u, 10u, 10u, 19969u, 19969u, 19969u, 19969u, 19841u,
   19841u, 19841u, 19841u, 19713u, 19713u, 19713u, 19713u, 19585u,
@@ -107,7 +107,7 @@ static uint16_t table_7[304] = {
   257u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u
 };
 
-static uint8_t table_8[] = {
+static const uint8_t table_8[] = {
     0,  12,  11,  11,  11,  11,  11,  11,  12,  12,
    13,  13,  22,  22,  22,  22,  11,  10,  10,  10,
    10,  10,  10,  10,  10,  10,  10,  10,  10,  10,
@@ -141,7 +141,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
     IMM4Context *s = avctx->priv_data;
     int i, f = 0, sign, c, d, is_end, len, factor2;
 
-    for (i = 1; i < 64; i++) {
+    for (i = !flag; i < 64; i++) {
         unsigned bits;
 
         bits = show_bits_long(gb, 32);
@@ -207,13 +207,16 @@ static int decode_blocks(AVCodecContext *avctx, GetBitContext *gb,
     memset(s->block, 0, sizeof(s->block));
 
     for (i = 0; i < 6; i++) {
-        int x = get_bits(gb, 8);
+        if (!flag) {
+            int x = get_bits(gb, 8);
 
-        if (x == 255)
-            x = 128;
-        x *= 8;
+            if (x == 255)
+                x = 128;
+            x *= 8;
 
-        s->block[i][0] = x;
+            s->block[i][0] = x;
+        }
+
         if (cbp & (1 << (5 - i))) {
             ret = decode_block(avctx, gb, i, s->factor, flag);
             if (ret < 0)
@@ -252,7 +255,7 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             value2 = get_value2(gb, 1);
 
             value = value | (value2 << 2);
-            ret = decode_blocks(avctx, gb, value, flag);
+            ret = decode_blocks(avctx, gb, value, 0);
             if (ret < 0)
                 return ret;
 
@@ -271,10 +274,38 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
         }
     }
 
-    printf("gb: %d\n", get_bits_left(gb));
-
     return 0;
 }
+
+static const uint16_t table_9[] = {
+  65535, 0, 255, 9, 52, 9, 36, 9, 20, 9, 49, 9, 35, 8, 35, 8, 19,
+  8, 19, 8, 50, 8, 50, 8, 51, 7, 51, 7, 51, 7, 51, 7, 34, 7, 34,
+  7, 34, 7, 34, 7, 18, 7, 18, 7, 18, 7, 18, 7, 33, 7, 33, 7, 33,
+  7, 33, 7, 17, 7, 17, 7, 17, 7, 17, 7, 4, 6, 4, 6, 4, 6, 4, 6,
+  4, 6, 4, 6, 4, 6, 4, 6, 48, 6, 48, 6, 48, 6, 48, 6, 48, 6, 48,
+  6, 48, 6, 48, 6, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3,
+  5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 32, 4, 32,
+  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
+  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
+  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
+  4, 32, 4, 32, 4, 32, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
+  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
+  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
+  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
+  3, 2, 3, 2, 3, 2, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 0, 1, 0, 0
+};
 
 static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame)
 {
@@ -288,23 +319,32 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
             unsigned value2, value, skip;
-            int flag;
+            int flag, reverse;
+
+            printf("%d %d\n", x, y);
+            if (get_bits1(gb)) {
+                continue;
+            }
 
             value = show_bits(gb, 9);
-            value >>= 3;
-            skip = table_3[2 * value + 1];
-            value = table_3[2 * value];
+            if (value > 256)
+                value = 256;
+            skip = table_9[2 * value + 1];
+            value = table_9[2 * value];
             av_assert0(skip > 0);
             skip_bits(gb, skip);
 
             s->field_28 = value & 0x07;
+            reverse = s->field_28 == 3;
+            if (reverse)
+                flag = get_bits1(gb);
+
             value = value >> 4;
-            flag = get_bits1(gb);
-
-            value2 = get_value2(gb, 1);
-
+            value2 = get_value2(gb, reverse);
             value = value | (value2 << 2);
-            ret = decode_blocks(avctx, gb, value, flag);
+            if (!s->field_28)
+                flag = get_bits1(gb);
+            ret = decode_blocks(avctx, gb, value, !s->field_28);
             if (ret < 0)
                 return ret;
 
