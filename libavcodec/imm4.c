@@ -141,7 +141,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
                         int block, unsigned factor, int flag)
 {
     IMM4Context *s = avctx->priv_data;
-    int i, f = 0, sign, c, d, is_end, len, factor2;
+    int i, sign, c, d, is_end, len, factor2;
 
     for (i = !flag; i < 64; i++) {
         unsigned bits;
@@ -195,7 +195,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
         if (i >= 64)
             break;
         s->block[block][i] = factor * factor2;
-        if (is_end || f)
+        if (is_end)
             break;
     }
 
@@ -329,8 +329,8 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
 
             if (get_bits1(gb)) {
                 copy_block16(frame->data[0] + y * frame->linesize[0] + x,
-                            prev->data[0] + y * prev->linesize[0] + x,
-                            frame->linesize[0], prev->linesize[0], 16);
+                             prev->data[0] + y * prev->linesize[0] + x,
+                             frame->linesize[0], prev->linesize[0], 16);
                 copy_block8(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                             prev->data[1] + (y >> 1) * prev->linesize[1] + (x >> 1),
                             frame->linesize[1], prev->linesize[1], 8);
