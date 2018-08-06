@@ -27,6 +27,7 @@
 #include "libavutil/avassert.h"
 #include "avcodec.h"
 #include "bswapdsp.h"
+#include "copy_block.h"
 #include "get_bits.h"
 #include "internal.h"
 #include "idctdsp.h"
@@ -126,7 +127,8 @@ static int get_value2(GetBitContext *gb, int x)
 
     value = show_bits(gb, 6);
     skip = table_5[2 * value + 1];
-    av_assert0(skip > 0);
+    if (skip <= 0)
+        return AVERROR_INVALIDDATA;
     skip_bits(gb, skip);
 
     if (x)
@@ -147,17 +149,17 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
         bits = show_bits_long(gb, 32);
 
         if (bits >> 27 >= 4) {
-            av_assert0(60 + (bits >> 27) < FF_ARRAY_ELEMS(table_8));
+            if (60 + (bits >> 27) >= FF_ARRAY_ELEMS(table_8))
+                return AVERROR_INVALIDDATA;
             c = table_8[60 + (bits >> 27)];
         } else {
-            av_assert0((bits >> 23) < FF_ARRAY_ELEMS(table_8));
+            if ((bits >> 23) >= FF_ARRAY_ELEMS(table_8))
+                return AVERROR_INVALIDDATA;
             c = table_8[bits >> 23];
         }
 
-        if (!c) {
-            f |= 2;
-            av_assert0(0);
-        }
+        if (!c)
+            return AVERROR_INVALIDDATA;
 
         d = bits >> 25;
         if (d == 3) {
@@ -174,13 +176,15 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
             if (bits >> 27)
                 e = (bits >> 22) + 64;
             if ((bits >> 27) < 4) {
-                av_assert0(e < FF_ARRAY_ELEMS(table_7));
+                if (e >= FF_ARRAY_ELEMS(table_7))
+                    return AVERROR_INVALIDDATA;
                 b = table_7[e];
             }
             v20 = b & 0x7F;
             is_end = (b >> 14) & 0x3;
             len = (b >> 7) & 0x3F;
-            av_assert0(c > 1);
+            if (c <= 1)
+                return AVERROR_INVALIDDATA;
             skip_bits(gb, c);
             sign = bits << (c - 1);
             factor2 = v20;
@@ -245,7 +249,8 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             value >>= 3;
             skip = table_3[2 * value + 1];
             value = table_3[2 * value];
-            av_assert0(skip > 0);
+            if (skip <= 0)
+                return AVERROR_INVALIDDATA;
             skip_bits(gb, skip);
 
             s->field_28 = value & 0x07;
@@ -307,7 +312,8 @@ static const uint16_t table_9[] = {
   3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 0, 1, 0, 0
 };
 
-static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame)
+static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
+                        AVFrame *frame, AVFrame *prev)
 {
     IMM4Context *s = avctx->priv_data;
     int ret, x, y;
@@ -321,8 +327,16 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             unsigned value2, value, skip;
             int flag, reverse;
 
-            printf("%d %d\n", x, y);
             if (get_bits1(gb)) {
+                copy_block16(frame->data[0] + y * frame->linesize[0] + x,
+                            prev->data[0] + y * prev->linesize[0] + x,
+                            frame->linesize[0], prev->linesize[0], 16);
+                copy_block8(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                            prev->data[1] + (y >> 1) * prev->linesize[1] + (x >> 1),
+                            frame->linesize[1], prev->linesize[1], 8);
+                copy_block8(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                            prev->data[2] + (y >> 1) * prev->linesize[2] + (x >> 1),
+                            frame->linesize[2], prev->linesize[2], 8);
                 continue;
             }
 
@@ -331,7 +345,8 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
                 value = 256;
             skip = table_9[2 * value + 1];
             value = table_9[2 * value];
-            av_assert0(skip > 0);
+            if (skip <= 0)
+                return AVERROR_INVALIDDATA;
             skip_bits(gb, skip);
 
             s->field_28 = value & 0x07;
@@ -342,9 +357,12 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             value = value >> 4;
             value2 = get_value2(gb, reverse);
             value = value | (value2 << 2);
-            if (!s->field_28)
+            if (s->field_28) {
+                ret = decode_blocks(avctx, gb, value, 0);
+            } else {
                 flag = get_bits1(gb);
-            ret = decode_blocks(avctx, gb, value, !s->field_28);
+                ret = decode_blocks(avctx, gb, value, 1);
+            }
             if (ret < 0)
                 return ret;
 
@@ -446,7 +464,8 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     case 0x12250926:
         frame->key_frame = 0;
         frame->pict_type = AV_PICTURE_TYPE_P;
-        ret = decode_inter(avctx, gb, frame);
+        ret = decode_inter(avctx, gb, frame, s->prev_frame);
+        ret = 0;
         break;
     default:
         return AVERROR_INVALIDDATA;
