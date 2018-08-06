@@ -337,7 +337,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     unsigned type;
     int ret, scaled;
 
-    if (avpkt->size <= 24)
+    if (avpkt->size <= 32)
         return AVERROR_INVALIDDATA;
 
     av_fast_malloc(&s->bitstream, &s->bitstream_size,
