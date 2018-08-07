@@ -42,15 +42,19 @@ typedef struct IMM4Context {
 
     unsigned factor;
     unsigned field_2B;
-    unsigned field_30;
     unsigned field_28;
 
     DECLARE_ALIGNED(32, int16_t, block)[6][64];
+    DECLARE_ALIGNED(32, int8_t, pblock)[6][64];
     IDCTDSPContext idsp;
 } IMM4Context;
 
 static const uint8_t table_0[] = {
     12, 9, 6,
+};
+
+static const uint8_t table_10[] = {
+    30, 20, 15,
 };
 
 static const int16_t table_3[] = {
@@ -238,12 +242,10 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
 
     s->field_2B = table_0[s->factor];
     s->factor = s->field_2B * 2;
-    s->field_30 = 0;
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
             unsigned value2, value, skip;
-            int flag;
 
             value = show_bits(gb, 9);
             value >>= 3;
@@ -255,7 +257,7 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
 
             s->field_28 = value & 0x07;
             value = value >> 4;
-            flag = get_bits1(gb);
+            skip_bits1(gb);
 
             value2 = get_value2(gb, 1);
 
@@ -318,14 +320,13 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
     IMM4Context *s = avctx->priv_data;
     int ret, x, y;
 
-    s->field_2B = table_0[s->factor];
-    s->factor = s->field_2B * 2;
-    s->field_30 = 0;
+    s->field_2B = table_10[s->factor];
+    s->factor = s->field_2B;
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
             unsigned value2, value, skip;
-            int flag, reverse;
+            int reverse;
 
             if (get_bits1(gb)) {
                 copy_block16(frame->data[0] + y * frame->linesize[0] + x,
@@ -352,36 +353,42 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
             s->field_28 = value & 0x07;
             reverse = s->field_28 == 3;
             if (reverse)
-                flag = get_bits1(gb);
+                skip_bits1(gb);
 
             value = value >> 4;
             value2 = get_value2(gb, reverse);
             value = value | (value2 << 2);
             if (s->field_28) {
                 ret = decode_blocks(avctx, gb, value, 0);
-            } else {
-                flag = get_bits1(gb);
-                ret = decode_blocks(avctx, gb, value, 1);
-            }
-            if (ret < 0)
-                return ret;
+                if (ret < 0)
+                    return ret;
 
-            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
-                             frame->linesize[0], s->block[0]);
-            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
-                             frame->linesize[0], s->block[1]);
-            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
-                             frame->linesize[0], s->block[2]);
-            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
-                             frame->linesize[0], s->block[3]);
-            s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
-                             frame->linesize[1], s->block[4]);
-            s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
-                             frame->linesize[2], s->block[5]);
+                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
+                                 frame->linesize[0], s->block[0]);
+                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[1]);
+                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                                 frame->linesize[0], s->block[2]);
+                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[3]);
+                s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                                 frame->linesize[1], s->block[4]);
+                s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                                 frame->linesize[2], s->block[5]);
+            } else {
+                skip_bits(gb, 2);
+                ret = decode_blocks(avctx, gb, value, 1);
+                if (ret < 0)
+                    return ret;
+                s->idsp.idct_put(s->pblock[0], 8, s->block[0]);
+                s->idsp.idct_put(s->pblock[1], 8, s->block[1]);
+                s->idsp.idct_put(s->pblock[2], 8, s->block[2]);
+                s->idsp.idct_put(s->pblock[3], 8, s->block[3]);
+                s->idsp.idct_put(s->pblock[4], 8, s->block[4]);
+                s->idsp.idct_put(s->pblock[5], 8, s->block[5]);
+            }
         }
     }
-
-    printf("gb: %d\n", get_bits_left(gb));
 
     return 0;
 }
@@ -465,7 +472,6 @@ static int decode_frame(AVCodecContext *avctx, void *data,
         frame->key_frame = 0;
         frame->pict_type = AV_PICTURE_TYPE_P;
         ret = decode_inter(avctx, gb, frame, s->prev_frame);
-        ret = 0;
         break;
     default:
         return AVERROR_INVALIDDATA;
