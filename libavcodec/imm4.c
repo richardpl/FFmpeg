@@ -44,7 +44,6 @@ typedef struct IMM4Context {
     unsigned field_28;
 
     DECLARE_ALIGNED(32, int16_t, block)[6][64];
-    DECLARE_ALIGNED(32, uint8_t, pblock)[6][64];
     IDCTDSPContext idsp;
 } IMM4Context;
 
