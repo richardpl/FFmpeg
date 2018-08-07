@@ -24,13 +24,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libavutil/avassert.h"
 #include "avcodec.h"
 #include "bswapdsp.h"
 #include "copy_block.h"
 #include "get_bits.h"
-#include "internal.h"
 #include "idctdsp.h"
+#include "internal.h"
 
 typedef struct IMM4Context {
     BswapDSPContext bdsp;
@@ -45,7 +44,7 @@ typedef struct IMM4Context {
     unsigned field_28;
 
     DECLARE_ALIGNED(32, int16_t, block)[6][64];
-    DECLARE_ALIGNED(32, int8_t, pblock)[6][64];
+    DECLARE_ALIGNED(32, uint8_t, pblock)[6][64];
     IDCTDSPContext idsp;
 } IMM4Context;
 
@@ -167,11 +166,10 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
 
         d = bits >> 25;
         if (d == 3) {
-            is_end = (bits >> 24) & 1;
-            len = (bits >> 18) & 0x3F;
-            factor2 = (int)(bits << 14) >> 24;
-            sign = factor2 < 0;
-            skip_bits(gb, c);
+            skip_bits(gb, 7);
+            is_end = get_bits1(gb);
+            len = get_bits(gb, 6);
+            factor2 = get_sbits(gb, 8);
         } else {
             int b = table_7[d + 176];
             int e = bits >> 20;
@@ -380,12 +378,29 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 ret = decode_blocks(avctx, gb, value, 1);
                 if (ret < 0)
                     return ret;
-                s->idsp.idct_put(s->pblock[0], 8, s->block[0]);
-                s->idsp.idct_put(s->pblock[1], 8, s->block[1]);
-                s->idsp.idct_put(s->pblock[2], 8, s->block[2]);
-                s->idsp.idct_put(s->pblock[3], 8, s->block[3]);
-                s->idsp.idct_put(s->pblock[4], 8, s->block[4]);
-                s->idsp.idct_put(s->pblock[5], 8, s->block[5]);
+
+                copy_block16(frame->data[0] + y * frame->linesize[0] + x,
+                             prev->data[0] + y * prev->linesize[0] + x,
+                             frame->linesize[0], prev->linesize[0], 16);
+                copy_block8(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                            prev->data[1] + (y >> 1) * prev->linesize[1] + (x >> 1),
+                            frame->linesize[1], prev->linesize[1], 8);
+                copy_block8(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                            prev->data[2] + (y >> 1) * prev->linesize[2] + (x >> 1),
+                            frame->linesize[2], prev->linesize[2], 8);
+
+                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x,
+                                 frame->linesize[0], s->block[0]);
+                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[1]);
+                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                                 frame->linesize[0], s->block[2]);
+                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[3]);
+                s->idsp.idct_add(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                                 frame->linesize[1], s->block[4]);
+                s->idsp.idct_add(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                                 frame->linesize[2], s->block[5]);
             }
         }
     }
