@@ -305,17 +305,17 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             if (ret < 0)
                 return ret;
 
-            imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x,
+            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
                              frame->linesize[0], s->block[0]);
-            imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x + 8,
+            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
                              frame->linesize[0], s->block[1]);
-            imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
                              frame->linesize[0], s->block[2]);
-            imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
                              frame->linesize[0], s->block[3]);
-            imm4_idct_put_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+            s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                              frame->linesize[1], s->block[4]);
-            imm4_idct_put_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+            s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
                              frame->linesize[2], s->block[5]);
         }
     }
@@ -402,17 +402,17 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 if (ret < 0)
                     return ret;
 
-                imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x,
+                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[0]);
-                imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x + 8,
+                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[1]);
-                imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[2]);
-                imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[3]);
-                imm4_idct_put_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                                  frame->linesize[1], s->block[4]);
-                imm4_idct_put_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
                                  frame->linesize[2], s->block[5]);
             } else {
                 skip_bits(gb, 2);
@@ -430,17 +430,17 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                             prev->data[2] + (y >> 1) * prev->linesize[2] + (x >> 1),
                             frame->linesize[2], prev->linesize[2], 8);
 
-                imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x,
+                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[0]);
-                imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x + 8,
+                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[1]);
-                imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[2]);
-                imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[3]);
-                imm4_idct_add_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                s->idsp.idct_add(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                                  frame->linesize[1], s->block[4]);
-                imm4_idct_add_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                s->idsp.idct_add(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
                                  frame->linesize[2], s->block[5]);
             }
         }
@@ -517,6 +517,8 @@ static int decode_frame(AVCodecContext *avctx, void *data,
 
     if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
         return ret;
+    if ((ret = ff_reget_buffer(avctx, s->prev_frame)) < 0)
+        return ret;
 
     switch (type) {
     case 0x19781977:
@@ -537,10 +539,6 @@ static int decode_frame(AVCodecContext *avctx, void *data,
         return ret;
 
     if (frame->key_frame) {
-        av_frame_unref(s->prev_frame);
-        if ((ret = ff_get_buffer(avctx, s->prev_frame, 0)) < 0)
-            return ret;
-
         if ((ret = av_frame_copy(s->prev_frame, frame)) < 0)
             return ret;
     }
