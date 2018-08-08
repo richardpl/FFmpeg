@@ -31,6 +31,8 @@
 #include "idctdsp.h"
 #include "internal.h"
 
+#include "x86/imm4idct.h"
+
 typedef struct IMM4Context {
     BswapDSPContext bdsp;
     GetBitContext  gb;
@@ -122,6 +124,46 @@ static const uint8_t table_8[] = {
     3,   3,   3,   3,   4,   4,   4,   4,   5,   5,
     5,   5,   0,   0,   0,   0
 };
+
+static void imm4_idct_put_c(uint8_t *dest, ptrdiff_t line_size, int16_t *block)
+{
+    int i;
+
+    ff_imm4_idct_sse2(block);
+
+    for (i = 0; i < 8; i++) {
+        dest[0] = av_clip_uint8(block[0]);
+        dest[1] = av_clip_uint8(block[1]);
+        dest[2] = av_clip_uint8(block[2]);
+        dest[3] = av_clip_uint8(block[3]);
+        dest[4] = av_clip_uint8(block[4]);
+        dest[5] = av_clip_uint8(block[5]);
+        dest[6] = av_clip_uint8(block[6]);
+        dest[7] = av_clip_uint8(block[7]);
+        dest += line_size;
+        block += 8;
+    }
+}
+
+static void imm4_idct_add_c(uint8_t *dest, ptrdiff_t line_size, int16_t *block)
+{
+    int i;
+
+    ff_imm4_idct_sse2(block);
+
+    for (i = 0; i < 8; i++) {
+        dest[0] = av_clip_uint8(dest[0] + block[0]);
+        dest[1] = av_clip_uint8(dest[1] + block[1]);
+        dest[2] = av_clip_uint8(dest[2] + block[2]);
+        dest[3] = av_clip_uint8(dest[3] + block[3]);
+        dest[4] = av_clip_uint8(dest[4] + block[4]);
+        dest[5] = av_clip_uint8(dest[5] + block[5]);
+        dest[6] = av_clip_uint8(dest[6] + block[6]);
+        dest[7] = av_clip_uint8(dest[7] + block[7]);
+        dest += line_size;
+        block += 8;
+    }
+}
 
 static int get_value2(GetBitContext *gb, int x)
 {
