@@ -172,7 +172,6 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
         } else {
             int b = table_7[d + 176];
             int e = bits >> 20;
-            int v20;
 
             if (show_bits(gb, 5))
                 e = (bits >> 22) + 64;
@@ -181,14 +180,13 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
                     return AVERROR_INVALIDDATA;
                 b = table_7[e];
             }
-            v20 = b & 0x7F;
+            factor2 = b & 0x7F;
             is_end = (b >> 14) & 0x3;
             len = (b >> 7) & 0x3F;
             if (c <= 1)
                 return AVERROR_INVALIDDATA;
             skip_bits(gb, c - 1);
             sign = get_bits1(gb);
-            factor2 = v20;
             if (sign)
                 factor2 = -factor2;
         }
