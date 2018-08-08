@@ -305,17 +305,17 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
             if (ret < 0)
                 return ret;
 
-            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
+            imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x,
                              frame->linesize[0], s->block[0]);
-            s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
+            imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x + 8,
                              frame->linesize[0], s->block[1]);
-            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+            imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
                              frame->linesize[0], s->block[2]);
-            s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+            imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
                              frame->linesize[0], s->block[3]);
-            s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+            imm4_idct_put_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                              frame->linesize[1], s->block[4]);
-            s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+            imm4_idct_put_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
                              frame->linesize[2], s->block[5]);
         }
     }
@@ -402,17 +402,17 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 if (ret < 0)
                     return ret;
 
-                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x,
+                imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[0]);
-                s->idsp.idct_put(frame->data[0] + y * frame->linesize[0] + x + 8,
+                imm4_idct_put_c(frame->data[0] + y * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[1]);
-                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[2]);
-                s->idsp.idct_put(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                imm4_idct_put_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
                                  frame->linesize[0], s->block[3]);
-                s->idsp.idct_put(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                imm4_idct_put_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
                                  frame->linesize[1], s->block[4]);
-                s->idsp.idct_put(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                imm4_idct_put_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
                                  frame->linesize[2], s->block[5]);
             } else {
                 skip_bits(gb, 2);
@@ -430,18 +430,18 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                             prev->data[2] + (y >> 1) * prev->linesize[2] + (x >> 1),
                             frame->linesize[2], prev->linesize[2], 8);
 
-                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x,
+                imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[0]);
-                s->idsp.idct_add(frame->data[0] + y * frame->linesize[0] + x + 8,
-                                 frame->linesize[0], s->block[1]);
-                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x,
-                                 frame->linesize[0], s->block[2]);
-                s->idsp.idct_add(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
-                                 frame->linesize[0], s->block[3]);
-                s->idsp.idct_add(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
-                                 frame->linesize[1], s->block[4]);
-                s->idsp.idct_add(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
-                                 frame->linesize[2], s->block[5]);
+                imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[0]);
+                imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
+                                 frame->linesize[0], s->block[0]);
+                imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
+                                 frame->linesize[0], s->block[0]);
+                imm4_idct_add_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
+                                 frame->linesize[1], s->block[0]);
+                imm4_idct_add_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
+                                 frame->linesize[2], s->block[0]);
             }
         }
     }
