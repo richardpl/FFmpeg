@@ -163,7 +163,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
         if (!c)
             return AVERROR_INVALIDDATA;
 
-        d = bits >> 25;
+        d = show_bits(gb, 7);
         if (d == 3) {
             skip_bits(gb, 7);
             is_end = get_bits1(gb);
@@ -174,9 +174,9 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
             int e = bits >> 20;
             int v20;
 
-            if (bits >> 27)
+            if (show_bits(gb, 5))
                 e = (bits >> 22) + 64;
-            if ((bits >> 27) < 4) {
+            if (show_bits(gb, 5) < 4) {
                 if (e >= FF_ARRAY_ELEMS(table_7))
                     return AVERROR_INVALIDDATA;
                 b = table_7[e];
@@ -186,10 +186,10 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
             len = (b >> 7) & 0x3F;
             if (c <= 1)
                 return AVERROR_INVALIDDATA;
-            skip_bits(gb, c);
-            sign = bits << (c - 1);
+            skip_bits(gb, c - 1);
+            sign = get_bits1(gb);
             factor2 = v20;
-            if (sign < 0)
+            if (sign)
                 factor2 = -factor2;
         }
         i += len;
