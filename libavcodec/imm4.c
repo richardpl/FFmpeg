@@ -433,15 +433,15 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x,
                                  frame->linesize[0], s->block[0]);
                 imm4_idct_add_c(frame->data[0] + y * frame->linesize[0] + x + 8,
-                                 frame->linesize[0], s->block[0]);
+                                 frame->linesize[0], s->block[1]);
                 imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x,
-                                 frame->linesize[0], s->block[0]);
+                                 frame->linesize[0], s->block[2]);
                 imm4_idct_add_c(frame->data[0] + (y + 8) * frame->linesize[0] + x + 8,
-                                 frame->linesize[0], s->block[0]);
+                                 frame->linesize[0], s->block[3]);
                 imm4_idct_add_c(frame->data[1] + (y >> 1) * frame->linesize[1] + (x >> 1),
-                                 frame->linesize[1], s->block[0]);
+                                 frame->linesize[1], s->block[4]);
                 imm4_idct_add_c(frame->data[2] + (y >> 1) * frame->linesize[2] + (x >> 1),
-                                 frame->linesize[2], s->block[0]);
+                                 frame->linesize[2], s->block[5]);
             }
         }
     }
@@ -515,7 +515,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     if (s->factor > 2)
         return AVERROR_INVALIDDATA;
 
-    if ((ret = ff_get_buffer(avctx, frame, AV_GET_BUFFER_FLAG_REF)) < 0)
+    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
         return ret;
 
     switch (type) {
@@ -536,9 +536,14 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     if (ret < 0)
         return ret;
 
-    av_frame_unref(s->prev_frame);
-    if ((ret = av_frame_ref(s->prev_frame, frame)) < 0)
-        return ret;
+    if (frame->key_frame) {
+        av_frame_unref(s->prev_frame);
+        if ((ret = ff_get_buffer(avctx, s->prev_frame, 0)) < 0)
+            return ret;
+
+        if ((ret = av_frame_copy(s->prev_frame, frame)) < 0)
+            return ret;
+    }
 
     *got_frame = 1;
 
