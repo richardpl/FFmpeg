@@ -41,7 +41,6 @@ typedef struct IMM4Context {
 
     unsigned factor;
     unsigned field_2B;
-    unsigned field_28;
 
     DECLARE_ALIGNED(32, int16_t, block)[6][64];
     IDCTDSPContext idsp;
@@ -250,7 +249,6 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
                 return AVERROR_INVALIDDATA;
             skip_bits(gb, skip);
 
-            s->field_28 = value & 0x07;
             value = value >> 4;
             skip_bits1(gb);
 
@@ -321,7 +319,7 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
             unsigned value2, value, skip;
-            int reverse;
+            int reverse, intra_block;
 
             if (get_bits1(gb)) {
                 copy_block16(frame->data[0] + y * frame->linesize[0] + x,
@@ -345,15 +343,15 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 return AVERROR_INVALIDDATA;
             skip_bits(gb, skip);
 
-            s->field_28 = value & 0x07;
-            reverse = s->field_28 == 3;
+            intra_block = value & 0x07;
+            reverse = intra_block == 3;
             if (reverse)
                 skip_bits1(gb);
 
             value = value >> 4;
             value2 = get_value2(gb, reverse);
             value = value | (value2 << 2);
-            if (s->field_28) {
+            if (intra_block) {
                 ret = decode_blocks(avctx, gb, value, 0);
                 if (ret < 0)
                     return ret;
