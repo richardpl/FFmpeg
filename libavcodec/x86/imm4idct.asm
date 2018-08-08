@@ -2,6 +2,83 @@
 
 SECTION_RODATA
 
+word_10142048: dw 23170, 23170, 23170, 23170, 21895, 21895, 21895, 21895
+word_10142098: dw 16384, 16384, 16384, 49152
+word_101420A0: dw 21407,  8867,  8867, 44129
+word_101420B8: dw 22725, 12873, 19266, 42811
+word_101420A8: dw 16384, 49152, 16384, 16384
+word_101420B0: dw 56669, 21407, 44129, 56669
+qword_101420C0: dq 0xCDB7EE5811A84B42
+qword_10142058: dq 0x0001000000010000
+qword_101420C8: dq 0x4B4211A811A83249
+qword_101420D0: dq 0xA73BCDB74B42A73B
+qword_101420D8: dq 0xA73B58C558C558C5
+qword_101420E0: dq 0x8C04300B300B73FC
+qword_101420F8: dq 0x84DF686245BF7B21
+qword_101420E8: dq 0x58C558C5A73B58C5
+qword_101420F0: dq 0xCFF58C0473FCCFF5
+qword_10142100: dq 0x0BA41E782187E6862
+qword_10142108: dq 0x6862187E187E45BF
+qword_10142110: dq 0x84DFBA41686284DF
+qword_10142118: dq 0x0AC61539F539F539F
+qword_10142120: dq 0x92BF2D412D416D41
+qword_10142128: dq 0x539F539FAC61539F
+qword_10142130: dq 0x0D2BF92BF6D41D2BF
+qword_10142138: dq 0x8C04625441B373FC
+qword_10142140: dq 0x0BE4DE8EE17126254
+qword_10142148: dq 0x62541712171241B3
+qword_10142150: dq 0x8C04BE4D62548C04
+qword_10142158: dq 0x0B4BE4B424B424B42
+qword_10142160: dq 0x9DAC28BA28BA6254
+qword_10142168: dq 0x4B424B42B4BE4B42
+qword_10142170: dq 0x0D7469DAC6254D746
+qword_10142178: dq 0x979E587E3B216862
+qword_10142180: dq 0x0C4DFEB3D14C3587E
+qword_10142188: dq 0x587E14C314C33B21
+qword_10142190: dq 0x979EC4DF587E979E
+qword_10142198: dq 0x22A34000539F4000
+qword_101421A0: dq 0x0AC61C00022A34000
+qword_101421A8: dq 0x0AC614000DD5D4000
+qword_101421B0: dq 0x0DD5D4000539FC000
+qword_101421B8: dq 0x0EE584B424B4258C5
+qword_101421C0: dq 0x0CDB7A73B11A83249
+qword_101421C8: dq 0x0CDB711A8A73B3249
+qword_101421D0: dq 0x0A73B4B424B4211A8
+qword_101421D8: dq 0x300B58C573FC58C5
+qword_101421E0: dq 0x8C04A73B300B58C5
+qword_101421E8: dq 0x8C0458C5CFF558C5
+qword_101421F0: dq 0x0CFF558C573FCA73B
+qword_101421F8: dq 0x0E782686268627B21
+qword_10142200: dq 0x0BA4184DF187E45BF
+qword_10142208: dq 0x0BA41187E84DF45BF
+qword_10142210: dq 0x84DF68626862187E
+qword_10142218: dq 0x2D41539F6D41539F
+qword_10142220: dq 0x92BFAC612D41539F
+qword_10142228: dq 0x92BF539FD2BF539F
+qword_10142230: dq 0x0D2BF539F6D41AC61
+qword_10142238: dq 0x0E8EE6254625473FC
+qword_10142240: dq 0x0BE4D8C04171241B3
+qword_10142248: dq 0x0BE4D17128C0441B3
+qword_10142250: dq 0x8C04625462541712
+qword_10142258: dq 0x28BA4B4262544B42
+qword_10142260: dq 0x9DACB4BE28BA4B42
+qword_10142268: dq 0x9DAC4B42D7464B42
+qword_10142270: dq 0x0D7464B426254B4BE
+qword_10142278: dq 0x0EB3D587E587E6862
+qword_10142280: dq 0x0C4DF979E14C33B21
+qword_10142288: dq 0x0C4DF14C3979E3B21
+qword_10142290: dq 0x979E587E587E14C3
+qword_10142060: dq 0x0
+qword_10142068: dq 0x0E0D00000E0D
+qword_10142070: dq 0x20000000200
+qword_10142078: dq 0x8D4000008D4
+qword_10142080: dq 0x20000000200
+qword_10142088: dq 0x4B3000004B3
+qword_10142090: dq 0x7800000078
+qword_10142028: dq 0x32EC32EC32EC32EC
+qword_10142030: dq 0x6A0A6A0A6A0A6A0A
+qword_10142038: dq 0x0AB0EAB0EAB0EAB0E
+
 INIT_XMM sse2
 SECTION .text
 
@@ -9,31 +86,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq]
     movq    mm1, [blockq+8]
     movq    mm2, mm0
-    movq    mm3, word_10142098
+    movq    mm3, [word_10142098]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, word_101420A0
+    movq    mm4, [word_101420A0]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, word_101420B8
+    movq    mm1, [word_101420B8]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, word_101420A8
+    pmaddwd mm0, [word_101420A8]
     punpckhdq mm6, mm6
-    movq    mm7, qword_101420C0
+    movq    mm7, [qword_101420C0]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142058
+    paddd   mm3, [qword_10142058]
     pmaddwd mm7, mm6
-    pmaddwd mm2, word_101420B0
+    pmaddwd mm2, [word_101420B0]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_101420C8
+    pmaddwd mm5, [qword_101420C8]
     movq    mm4, mm3
-    pmaddwd mm6, qword_101420D0
+    pmaddwd mm6, [qword_101420D0]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142058
+    paddd   mm0, [qword_10142058]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -56,31 +133,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+10h]
     movq    mm1, [blockq+18h]
     movq    mm2, mm0
-    movq    mm3, qword_101420D8
+    movq    mm3, [qword_101420D8]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_101420E0
+    movq    mm4, [qword_101420E0]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_101420F8
+    movq    mm1, [qword_101420F8]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_101420E8
+    pmaddwd mm0, [qword_101420E8]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142100
+    movq    mm7, [qword_10142100]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142068
+    paddd   mm3, [qword_10142068]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_101420F0
+    pmaddwd mm2, [qword_101420F0]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142108
+    pmaddwd mm5, [qword_10142108]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142110
+    pmaddwd mm6, [qword_10142110]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142068
+    paddd   mm0, [qword_10142068]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -103,31 +180,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+20h]
     movq    mm1, [blockq+28h]
     movq    mm2, mm0
-    movq    mm3, qword_10142118
+    movq    mm3, [qword_10142118]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_10142120
+    movq    mm4, [qword_10142120]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_10142138
+    movq    mm1, [qword_10142138]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_10142128
+    pmaddwd mm0, [qword_10142128]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142140
+    movq    mm7, [qword_10142140]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142078
+    paddd   mm3, [qword_10142078]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_10142130
+    pmaddwd mm2, [qword_10142130]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142148
+    pmaddwd mm5, [qword_10142148]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142150
+    pmaddwd mm6, [qword_10142150]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142078
+    paddd   mm0, [qword_10142078]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -150,31 +227,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+30h]
     movq    mm1, [blockq+38h]
     movq    mm2, mm0
-    movq    mm3, qword_10142158
+    movq    mm3, [qword_10142158]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_10142160
+    movq    mm4, [qword_10142160]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_10142178
+    movq    mm1, [qword_10142178]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_10142168
+    pmaddwd mm0, [qword_10142168]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142180
+    movq    mm7, [qword_10142180]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142088
+    paddd   mm3, [qword_10142088]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_10142170
+    pmaddwd mm2, [qword_10142170]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142188
+    pmaddwd mm5, [qword_10142188]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142190
+    pmaddwd mm6, [qword_10142190]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142088
+    paddd   mm0, [qword_10142088]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -197,31 +274,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+40h]
     movq    mm1, [blockq+48h]
     movq    mm2, mm0
-    movq    mm3, word_10142098
+    movq    mm3, [word_10142098]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, word_101420A0
+    movq    mm4, [word_101420A0]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, word_101420B8
+    movq    mm1, [word_101420B8]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, word_101420A8
+    pmaddwd mm0, [word_101420A8]
     punpckhdq mm6, mm6
-    movq    mm7, qword_101420C0
+    movq    mm7, [qword_101420C0]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142060
+    paddd   mm3, [qword_10142060]
     pmaddwd mm7, mm6
-    pmaddwd mm2, word_101420B0
+    pmaddwd mm2, [word_101420B0]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_101420C8
+    pmaddwd mm5, [qword_101420C8]
     movq    mm4, mm3
-    pmaddwd mm6, qword_101420D0
+    pmaddwd mm6, [qword_101420D0]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142060
+    paddd   mm0, [qword_10142060]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -244,31 +321,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+50h]
     movq    mm1, [blockq+58h]
     movq    mm2, mm0
-    movq    mm3, qword_10142158
+    movq    mm3, [qword_10142158]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_10142160
+    movq    mm4, [qword_10142160]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_10142178
+    movq    mm1, [qword_10142178]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_10142168
+    pmaddwd mm0, [qword_10142168]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142180
+    movq    mm7, [qword_10142180]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142090
+    paddd   mm3, [qword_10142090]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_10142170
+    pmaddwd mm2, [qword_10142170]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142188
+    pmaddwd mm5, [qword_10142188]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142190
+    pmaddwd mm6, [qword_10142190]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142090
+    paddd   mm0, [qword_10142090]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -291,31 +368,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+60h]
     movq    mm1, [blockq+68h]
     movq    mm2, mm0
-    movq    mm3, qword_10142118
+    movq    mm3, [qword_10142118]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_10142120
+    movq    mm4, [qword_10142120]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_10142138
+    movq    mm1, [qword_10142138]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_10142128
+    pmaddwd mm0, [qword_10142128]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142140
+    movq    mm7, [qword_10142140]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142080
+    paddd   mm3, [qword_10142080]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_10142130
+    pmaddwd mm2, [qword_10142130]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142148
+    pmaddwd mm5, [qword_10142148]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142150
+    pmaddwd mm6, [qword_10142150]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142080
+    paddd   mm0, [qword_10142080]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -338,31 +415,31 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    mm0, [blockq+70h]
     movq    mm1, [blockq+78h]
     movq    mm2, mm0
-    movq    mm3, qword_101420D8
+    movq    mm3, [qword_101420D8]
     punpcklwd mm0, mm1
     movq    mm5, mm0
     punpckldq mm0, mm0
-    movq    mm4, qword_101420E0
+    movq    mm4, [qword_101420E0]
     punpckhwd mm2, mm1
     pmaddwd mm3, mm0
     movq    mm6, mm2
-    movq    mm1, qword_101420F8
+    movq    mm1, [qword_101420F8]
     punpckldq mm2, mm2
     pmaddwd mm4, mm2
     punpckhdq mm5, mm5
-    pmaddwd mm0, qword_101420E8
+    pmaddwd mm0, [qword_101420E8]
     punpckhdq mm6, mm6
-    movq    mm7, qword_10142100
+    movq    mm7, [qword_10142100]
     pmaddwd mm1, mm5
-    paddd   mm3, qword_10142070
+    paddd   mm3, [qword_10142070]
     pmaddwd mm7, mm6
-    pmaddwd mm2, qword_101420F0
+    pmaddwd mm2, [qword_101420F0]
     paddd   mm3, mm4
-    pmaddwd mm5, qword_10142108
+    pmaddwd mm5, [qword_10142108]
     movq    mm4, mm3
-    pmaddwd mm6, qword_10142110
+    pmaddwd mm6, [qword_10142110]
     paddd   mm1, mm7
-    paddd   mm0, qword_10142070
+    paddd   mm0, [qword_10142070]
     psubd   mm3, mm1
     psrad   mm3, 0Bh
     paddd   mm1, mm4
@@ -382,12 +459,12 @@ cglobal imm4_idct, 1, 1, 0, block
     movq    [blockq+70h], mm1
     por     mm7, mm4
     movq    [blockq+78h], mm7
-    movq    mm0, qword_10142038
+    movq    mm0, [qword_10142038]
     movq    mm3, [blockq+30h]
     movq    mm1, mm0
     movq    mm5, [blockq+50h]
     pmulhw  mm0, mm3
-    movq    mm4, qword_10142028
+    movq    mm4, [qword_10142028]
     pmulhw  mm1, mm5
     movq    mm7, [blockq+70h]
     movq    mm2, mm4
@@ -397,7 +474,7 @@ cglobal imm4_idct, 1, 1, 0, block
     pmulhw  mm2, mm6
     paddsw  mm1, mm3
     psubsw  mm0, mm5
-    movq    mm3, word_10142048
+    movq    mm3, [word_10142048]
     paddsw  mm1, mm5
     paddsw  mm4, mm6
     psubsw  mm2, mm7
@@ -407,7 +484,7 @@ cglobal imm4_idct, 1, 1, 0, block
     psubsw  mm6, mm0
     psubsw  mm4, mm1
     paddsw  mm2, mm0
-    movq    mm7, qword_10142030
+    movq    mm7, [qword_10142030]
     movq    mm1, mm4
     movq    [blockq+30h], mm5
     paddsw  mm1, mm2
@@ -465,12 +542,12 @@ cglobal imm4_idct, 1, 1, 0, block
     psraw   mm6, 6
     movq    [blockq+30h], mm2
     movq    [blockq+40h], mm6
-    movq    mm0, qword_10142038
+    movq    mm0, [qword_10142038]
     movq    mm3, [blockq+38h]
     movq    mm1, mm0
     movq    mm5, [blockq+58h]
     pmulhw  mm0, mm3
-    movq    mm4, qword_10142028
+    movq    mm4, [qword_10142028]
     pmulhw  mm1, mm5
     movq    mm7, [blockq+78h]
     movq    mm2, mm4
@@ -480,7 +557,7 @@ cglobal imm4_idct, 1, 1, 0, block
     pmulhw  mm2, mm6
     paddsw  mm1, mm3
     psubsw  mm0, mm5
-    movq    mm3, word_10142048
+    movq    mm3, [word_10142048]
     paddsw  mm1, mm5
     paddsw  mm4, mm6
     psubsw  mm2, mm7
@@ -490,7 +567,7 @@ cglobal imm4_idct, 1, 1, 0, block
     psubsw  mm6, mm0
     psubsw  mm4, mm1
     paddsw  mm2, mm0
-    movq    mm7, qword_10142030
+    movq    mm7, [qword_10142030]
     movq    mm1, mm4
     movq    [blockq+38h], mm5
     paddsw  mm1, mm2
