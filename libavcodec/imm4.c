@@ -169,8 +169,8 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
             len = get_bits(gb, 6);
             factor2 = get_sbits(gb, 8);
         } else {
-            int b = table_7[d + 176];
-            int e = bits >> 20;
+            unsigned b = table_7[d + 176];
+            unsigned e = bits >> 20;
 
             if (show_bits(gb, 5))
                 e = (bits >> 22) + 64;
