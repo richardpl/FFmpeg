@@ -180,7 +180,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
                 b = table_7[e];
             }
             factor2 = b & 0x7F;
-            is_end = (b >> 14) & 0x3;
+            is_end = (b >> 14) & 1;
             len = (b >> 7) & 0x3F;
             if (c <= 1)
                 return AVERROR_INVALIDDATA;
