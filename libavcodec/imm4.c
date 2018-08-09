@@ -39,8 +39,8 @@ typedef struct IMM4Context {
     uint8_t *bitstream;
     int bitstream_size;
 
-    unsigned factor;
-    unsigned field_2B;
+    int factor;
+    unsigned sindex;
 
     DECLARE_ALIGNED(32, int16_t, block)[6][64];
     IDCTDSPContext idsp;
@@ -139,7 +139,7 @@ static int get_value2(GetBitContext *gb, int x)
 }
 
 static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
-                        int block, unsigned factor, int flag)
+                        int block, int factor, int flag)
 {
     IMM4Context *s = avctx->priv_data;
     int i, sign, c, d, is_end, len, factor2;
@@ -234,8 +234,7 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
     IMM4Context *s = avctx->priv_data;
     int ret, x, y;
 
-    s->field_2B = table_0[s->factor];
-    s->factor = s->field_2B * 2;
+    s->factor = table_0[s->sindex] * 2;
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
@@ -313,8 +312,7 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
     IMM4Context *s = avctx->priv_data;
     int ret, x, y;
 
-    s->field_2B = table_10[s->factor];
-    s->factor = s->field_2B;
+    s->factor = table_10[s->sindex];
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
@@ -465,8 +463,8 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     }
 
     type = get_bits_long(gb, 32);
-    s->factor = get_bits_long(gb, 32);
-    if (s->factor > 2)
+    s->sindex = get_bits_long(gb, 32);
+    if (s->sindex > 2)
         return AVERROR_INVALIDDATA;
 
     if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
