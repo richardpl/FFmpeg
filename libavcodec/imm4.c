@@ -425,7 +425,6 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     if ((ret = init_get_bits8(gb, s->bitstream, avpkt->size + 3)) < 0)
         return ret;
 
-    skip_bits_long(gb, 24 * 8);
     scaled = avpkt->data[8];
     if (scaled < 2) {
         int width, height;
@@ -462,6 +461,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
         avctx->height = height;
     }
 
+    skip_bits_long(gb, 24 * 8);
     type = get_bits_long(gb, 32);
     s->sindex = get_bits_long(gb, 32);
     if (s->sindex > 2)
