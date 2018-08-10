@@ -54,17 +54,19 @@ static const uint8_t table_10[] = {
     30, 20, 15,
 };
 
-static const int16_t table_3[] = {
-  -1, 0, 20, 6, 36, 6, 52, 6, 4, 4, 4, 4, 4,
-  4, 4, 4, 19, 3, 19, 3, 19, 3, 19, 3, 19, 3, 19,
-  3, 19, 3, 19, 3, 35, 3, 35, 3, 35, 3, 35, 3, 35,
-  3, 35, 3, 35, 3, 35, 3, 51, 3, 51, 3, 51, 3, 51,
-  3, 51, 3, 51, 3, 51, 3, 51, 3, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
+static const uint8_t cbplo_symbols[] = {
+    3, 4, 19, 20, 35, 36, 51, 52
 };
+
+static const uint8_t cbplo_bits[] = {
+    1, 4, 3, 6, 3, 6, 3, 6
+};
+
+static const uint8_t cbplo_codes[] = {
+    1, 1, 1, 1, 2, 2, 3, 3
+};
+
+static VLC cbplo_tab;
 
 static const int16_t table_5[] = {
   -1, 0, -1, 0, 6, 6, 9, 6, 8, 5, 8, 5, 4, 5, 4, 5, 2, 5, 2,
@@ -238,17 +240,9 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
-            unsigned value2, value, skip;
+            unsigned value2, value;
 
-            value = show_bits(gb, 9);
-            value >>= 3;
-            skip = table_3[2 * value + 1];
-            value = table_3[2 * value];
-            if (skip <= 0)
-                return AVERROR_INVALIDDATA;
-            skip_bits(gb, skip);
-
-            value = value >> 4;
+            value = get_vlc2(gb, cbplo_tab.table, cbplo_tab.bits, 1) >> 4;
             skip_bits1(gb);
 
             value2 = get_value2(gb, 1);
@@ -505,6 +499,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
     IMM4Context *s = avctx->priv_data;
 
     avctx->pix_fmt = AV_PIX_FMT_YUV420P;
+    avctx->color_range = AVCOL_RANGE_JPEG;
     avctx->idct_algo = FF_IDCT_FAAN;
     ff_bswapdsp_init(&s->bdsp);
     ff_idctdsp_init(&s->idsp, avctx);
@@ -512,6 +507,24 @@ static av_cold int decode_init(AVCodecContext *avctx)
     s->prev_frame = av_frame_alloc();
     if (!s->prev_frame)
         return AVERROR(ENOMEM);
+
+    GetBitContext gb;
+
+    uint8_t array[32];
+    uint64_t index=0;
+    int i, code, len;
+    for(i = 0; i < 1 << 9; i++) {
+        AV_WL64(array, index);
+        init_get_bits8(&gb, array, sizeof(array));
+        code = show_bits(&gb, 6);
+        len = table_5[2 * code + 1];
+        code = table_5[2 * code];
+        printf("code: %5d, len:%d, bits:%X\n", code, len, show_bits(&gb, 6) >> (6 - len));
+        index += 1;
+    }
+
+    INIT_VLC_SPARSE_STATIC(&cbplo_tab, 9, FF_ARRAY_ELEMS(cbplo_bits),
+                           cbplo_bits, 1, 1, cbplo_codes, 1, 1, cbplo_symbols, 1, 1, 512);
 
     return 0;
 }
