@@ -505,7 +505,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
     IMM4Context *s = avctx->priv_data;
 
     avctx->pix_fmt = AV_PIX_FMT_YUV420P;
-    avctx->idct_algo = FF_IDCT_XVID;
+    avctx->idct_algo = FF_IDCT_FAAN;
     ff_bswapdsp_init(&s->bdsp);
     ff_idctdsp_init(&s->idsp, avctx);
 
