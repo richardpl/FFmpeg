@@ -413,8 +413,8 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     if (avpkt->size <= 32)
         return AVERROR_INVALIDDATA;
 
-    av_fast_malloc(&s->bitstream, &s->bitstream_size,
-                   avpkt->size + 3 + AV_INPUT_BUFFER_PADDING_SIZE);
+    av_fast_padded_malloc(&s->bitstream, &s->bitstream_size,
+                          avpkt->size + 3);
     if (!s->bitstream)
         return AVERROR(ENOMEM);
 
