@@ -86,55 +86,41 @@ static const uint8_t blktype_codes[] = {
     1, 3, 2, 3, 4, 3, 7, 5, 4, 4, 2, 6, 4, 3, 5, 5, 3, 2
 };
 
+static const uint16_t block_symbols[] = {
+    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0x81, 0x82, 0x83,
+    0x84, 0x85, 0x86, 0x101, 0x102, 0x103, 0x104, 0x181, 0x182, 0x183, 0x201, 0x202,
+    0x203, 0x281, 0x282, 0x283, 0x301, 0x302, 0x303, 0x381, 0x382, 0x401, 0x402,
+    0x481, 0x482, 0x501, 0x502, 0x581, 0x601, 0x681, 0x701, 0x781, 0x801, 0x881,
+    0x901, 0x981, 0xA01, 0xA81, 0xB01, 0xB81, 0xC01, 0xC81, 0xD01, 0x4001, 0x4002,
+    0x4003, 0x4081, 0x4082, 0x4101, 0x4181, 0x4201, 0x4281, 0x4301, 0x4381, 0x4401,
+    0x4481, 0x4501, 0x4581, 0x4601, 0x4681, 0x4701, 0x4781, 0x4801, 0x4881, 0x4901,
+    0x4981, 0x4A01, 0x4A81, 0x4B01, 0x4B81, 0x4C01, 0x4C81, 0x4D01, 0x4D81, 0x4E01,
+    0x4E81, 0x4F01, 0x4F81, 0x5001, 0x5081, 0x5101, 0x5181, 0x5201, 0x5281, 0x5301,
+    0x5381, 0x5401
+};
+
+static const uint8_t block_bits[] = {
+    7, 2, 4, 6, 7, 8, 9, 9, 10, 10, 11, 11, 11, 3, 6, 8, 10, 11, 12, 4, 8,
+    10, 12, 5, 9, 10, 5, 9, 12, 5, 10, 12, 6, 10, 12, 6, 10, 6, 10, 6,
+    10, 7, 12, 7, 7, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 11, 11, 12, 12, 4, 9,
+    11, 6, 11, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9,
+    9, 9, 9, 9, 10, 10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12, 12,
+    12, 12
+};
+
+static const uint8_t block_codes[] = {
+    3, 2, 15, 21, 23, 31, 37, 36, 33, 32, 7, 6, 32, 6, 20, 30, 15, 33, 80,
+    14, 29, 14, 81, 13, 35, 13, 12, 34, 82, 11, 12, 83, 19, 11, 84, 18,
+    10, 17, 9, 16, 8, 22, 85, 21, 20, 28, 27, 33, 32, 31, 30, 29, 28,
+    27, 26, 34, 35, 86, 87, 7, 25, 5, 15, 4, 14, 13, 12, 19, 18, 17, 16,
+    26, 25, 24, 23, 22, 21, 20, 19, 24, 23, 22, 21, 20, 19, 18, 17, 7,
+    6, 5, 4, 36, 37, 38, 39, 88, 89, 90, 91, 92, 93, 94, 95
+};
+
 static VLC cbplo_tab;
 static VLC cbphi_tab;
 static VLC blktype_tab;
-
-static const uint16_t table_7[304] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 16514, 16514, 16387, 16387,
-    11, 11, 10, 10, 19969, 19969, 19969, 19969, 19841, 19841,
-    19841, 19841, 19713, 19713, 19713, 19713, 19585, 19585,
-    19585, 19585, 1154, 1154, 1154, 1154, 1026, 1026, 1026,
-    1026, 898, 898, 898, 898, 770, 770, 770, 770, 642, 642,
-    642, 642, 387, 387, 387, 387, 259, 259, 259, 259, 132,
-    132, 132, 132, 12, 12, 133, 133, 2945, 2945, 3073, 3073,
-    20097, 20097, 20225, 20225, 20353, 20353, 20481, 20481,
-    134, 260, 515, 643, 771, 1282, 3201, 3329, 20609, 20737,
-    20865, 20993, 21121, 21249, 21377, 21505, 9, 8, 19457,
-    19457, 19329, 19329, 19201, 19201, 19073, 19073, 18945,
-    18945, 18817, 18817, 18689, 18689, 18561, 18561, 16386,
-    16386, 2817, 2817, 2689, 2689, 2561, 2561, 2433, 2433,
-    2305, 2305, 2177, 2177, 2049, 2049, 1921, 1921, 514,
-    514, 386, 386, 7, 7, 6, 6, 18433, 18433, 18433, 18433,
-    18305, 18305, 18305, 18305, 18177, 18177, 18177, 18177,
-    18049, 18049, 18049, 18049, 17921, 17921, 17921, 17921,
-    17793, 17793, 17793, 17793, 17665, 17665, 17665, 17665,
-    17537, 17537, 17537, 17537, 1793, 1793, 1793, 1793,
-    1665, 1665, 1665, 1665, 258, 258, 258, 258, 131, 131,
-    131, 131, 5, 5, 5, 5, 17409, 17281, 17153, 17025, 1537,
-    1409, 1281, 4, 16897, 16897, 16769, 16769, 16641, 16641,
-    16513, 16513, 1153, 1153, 1025, 1025, 897, 897, 769,
-    769, 130, 130, 3, 3, 641, 641, 641, 641, 513, 513, 513,
-    513, 385, 385, 385, 385, 16385, 16385, 16385, 16385,
-    16385, 16385, 16385, 16385, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 129, 129, 129, 129, 129, 129, 129,
-    129, 129, 129, 129, 129, 129, 129, 129, 129, 257, 257,
-    257, 257, 257, 257, 257, 257, 2, 2, 2, 2, 2, 2, 2, 2,
-};
-
-static const uint8_t table_8[] = {
-    0,  12,  11,  11,  11,  11,  11,  11,  12,  12,
-   13,  13,  22,  22,  22,  22,  11,  10,  10,  10,
-   10,  10,  10,  10,  10,  10,  10,  10,  10,  10,
-   10,  10,  10,  10,  10,  10,  10,  10,   9,   9,
-    9,   9,   9,   9,   9,   9,   9,   9,   9,   9,
-    9,   9,   9,   9,   9,   9,   9,   9,   9,   9,
-    9,   9,   9,   9,   8,   8,   7,   7,   7,   7,
-    7,   6,   6,   6,   5,   5,   3,   3,   3,   3,
-    3,   3,   3,   3,   4,   4,   4,   4,   5,   5,
-    5,   5,   0,   0,   0,   0
-};
+static VLC block_tab;
 
 static int get_cbphi(GetBitContext *gb, int x)
 {
@@ -151,49 +137,20 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
                         int block, int factor, int flag)
 {
     IMM4Context *s = avctx->priv_data;
-    int i, sign, c, d, is_end, len, factor2;
+    int i, sign, last, len, factor2;
 
     for (i = !flag; i < 64; i++) {
-        unsigned bits;
+        int value;
 
-        bits = show_bits_long(gb, 32);
-
-        if (bits >> 27 >= 4) {
-            if (60 + (bits >> 27) >= FF_ARRAY_ELEMS(table_8))
-                return AVERROR_INVALIDDATA;
-            c = table_8[60 + (bits >> 27)];
-        } else {
-            if ((bits >> 23) >= FF_ARRAY_ELEMS(table_8))
-                return AVERROR_INVALIDDATA;
-            c = table_8[bits >> 23];
-        }
-
-        if (!c)
-            return AVERROR_INVALIDDATA;
-
-        d = show_bits(gb, 7);
-        if (d == 3) {
-            skip_bits(gb, 7);
-            is_end = get_bits1(gb);
+        value = get_vlc2(gb, block_tab.table, block_tab.bits, 1);
+        if (value == 0) {
+            last = get_bits1(gb);
             len = get_bits(gb, 6);
             factor2 = get_sbits(gb, 8);
         } else {
-            unsigned b = table_7[d + 176];
-            unsigned e = bits >> 20;
-
-            if (show_bits(gb, 5))
-                e = (bits >> 22) + 64;
-            if (show_bits(gb, 5) < 4) {
-                if (e >= FF_ARRAY_ELEMS(table_7))
-                    return AVERROR_INVALIDDATA;
-                b = table_7[e];
-            }
-            factor2 = b & 0x7F;
-            is_end = (b >> 14) & 1;
-            len = (b >> 7) & 0x3F;
-            if (c <= 1)
-                return AVERROR_INVALIDDATA;
-            skip_bits(gb, c - 1);
+            factor2 = value & 0x7F;
+            last = (value >> 14) & 1;
+            len = (value >> 7) & 0x3F;
             sign = get_bits1(gb);
             if (sign)
                 factor2 = -factor2;
@@ -202,7 +159,7 @@ static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
         if (i >= 64)
             break;
         s->block[block][i] = factor * factor2;
-        if (is_end)
+        if (last)
             break;
     }
 
@@ -478,23 +435,6 @@ static av_cold int decode_init(AVCodecContext *avctx)
     if (!s->prev_frame)
         return AVERROR(ENOMEM);
 
-    GetBitContext gb;
-
-    uint8_t array[32];
-    uint64_t index=0;
-    int i, code, len;
-    for(i = 0; i < 1 << 9; i++) {
-        AV_WL64(array, index);
-        init_get_bits8(&gb, array, sizeof(array));
-        code = show_bits(&gb, 9);
-        if (code > 256)
-            code = 256;
-        len = table_8[2 * code + 1];
-        code = table_8[2 * code];
-        printf("code: %5d, len:%d, bits:%X\n", code, len, show_bits(&gb, 9) >> (9 - len));
-        index += 1;
-    }
-
     INIT_VLC_SPARSE_STATIC(&cbplo_tab, 9, FF_ARRAY_ELEMS(cbplo_bits),
                            cbplo_bits, 1, 1, cbplo_codes, 1, 1, cbplo_symbols, 1, 1, 512);
 
@@ -503,6 +443,9 @@ static av_cold int decode_init(AVCodecContext *avctx)
 
     INIT_VLC_SPARSE_STATIC(&blktype_tab, 9, FF_ARRAY_ELEMS(blktype_bits),
                            blktype_bits, 1, 1, blktype_codes, 1, 1, blktype_symbols, 1, 1, 512);
+
+    INIT_VLC_SPARSE_STATIC(&block_tab, 12, FF_ARRAY_ELEMS(block_bits),
+                           block_bits, 1, 1, block_codes, 1, 1, block_symbols, 2, 2, 4096);
 
     return 0;
 }
