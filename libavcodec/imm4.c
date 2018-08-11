@@ -66,17 +66,16 @@ static const uint8_t cbplo_codes[] = {
     1, 1, 1, 1, 2, 2, 3, 3
 };
 
-static VLC cbplo_tab;
-
-static const int16_t table_5[] = {
-  -1, 0, -1, 0, 6, 6, 9, 6, 8, 5, 8, 5, 4, 5, 4, 5, 2, 5, 2,
-  5, 1, 5, 1, 5, 0, 4, 0, 4, 0, 4, 0, 4, 12, 4, 12, 4, 12, 4, 12,
-  4, 10, 4, 10, 4, 10, 4, 10, 4, 14, 4, 14, 4, 14, 4, 14, 4, 5, 4,
-  5, 4, 5, 4, 5, 4, 13, 4, 13, 4, 13, 4, 13, 4, 3, 4, 3, 4, 3, 4,
-  3, 4, 11, 4, 11, 4, 11, 4, 11, 4, 7, 4, 7, 4, 7, 4, 7, 4, 15, 2,
-  15, 2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2, 15,
-  2, 15, 2, 15, 2, 15, 2, 15, 2, 15, 2,
+static const uint8_t cbphi_bits[] = {
+    4, 5, 5, 4, 5, 4, 6, 4, 5, 6, 4, 4, 4, 4, 4, 2
 };
+
+static const uint8_t cbphi_codes[] = {
+    3, 5, 4, 9, 3, 7, 2, 11, 2, 3, 5, 10, 4, 8, 6, 3
+};
+
+static VLC cbplo_tab;
+static VLC cbphi_tab;
 
 static const uint16_t table_7[304] = {
     0, 0, 0, 0, 0, 0, 0, 0, 16514, 16514, 16387, 16387,
@@ -126,18 +125,13 @@ static const uint8_t table_8[] = {
 
 static int get_cbphi(GetBitContext *gb, int x)
 {
-    int value, skip;
+    int value;
 
-    value = show_bits(gb, 6);
-    skip = table_5[2 * value + 1];
-    if (skip <= 0)
+    value = get_vlc2(gb, cbphi_tab.table, cbphi_tab.bits, 1);
+    if (value < 0)
         return AVERROR_INVALIDDATA;
-    skip_bits(gb, skip);
 
-    if (x)
-        return table_5[2 * value];
-    else
-        return 15 - table_5[2 * value];
+    return x ? value : 15 - value;
 }
 
 static int decode_block(AVCodecContext *avctx, GetBitContext *gb,
@@ -514,15 +508,18 @@ static av_cold int decode_init(AVCodecContext *avctx)
     for(i = 0; i < 1 << 9; i++) {
         AV_WL64(array, index);
         init_get_bits8(&gb, array, sizeof(array));
-        code = show_bits(&gb, 6);
-        len = table_5[2 * code + 1];
-        code = table_5[2 * code];
-        printf("code: %5d, len:%d, bits:%X\n", code, len, show_bits(&gb, 6) >> (6 - len));
+        code = show_bits(&gb, 9);
+        len = table_9[2 * code + 1];
+        code = table_9[2 * code];
+        printf("code: %5d, len:%d, bits:%X\n", code, len, show_bits(&gb, 9) >> (9 - len));
         index += 1;
     }
 
     INIT_VLC_SPARSE_STATIC(&cbplo_tab, 9, FF_ARRAY_ELEMS(cbplo_bits),
                            cbplo_bits, 1, 1, cbplo_codes, 1, 1, cbplo_symbols, 1, 1, 512);
+
+    INIT_VLC_SPARSE_STATIC(&cbphi_tab, 6, FF_ARRAY_ELEMS(cbphi_bits),
+                           cbphi_bits, 1, 1, cbphi_codes, 1, 1, NULL, 0, 0, 64);
 
     return 0;
 }
