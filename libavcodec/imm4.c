@@ -74,8 +74,21 @@ static const uint8_t cbphi_codes[] = {
     3, 5, 4, 9, 3, 7, 2, 11, 2, 3, 5, 10, 4, 8, 6, 3
 };
 
+static const uint8_t blktype_symbols[] = {
+    0, 1, 2, 3, 4, 16, 17, 18, 19, 20, 32, 33, 34, 35, 48, 50, 51, 52
+};
+
+static const uint8_t blktype_bits[] = {
+    1, 3, 3, 5, 6, 4, 7, 7, 8, 9, 4, 7, 7, 8, 6, 8, 7, 9
+};
+
+static const uint8_t blktype_codes[] = {
+    1, 3, 2, 3, 4, 3, 7, 5, 4, 4, 2, 6, 4, 3, 5, 5, 3, 2
+};
+
 static VLC cbplo_tab;
 static VLC cbphi_tab;
+static VLC blktype_tab;
 
 static const uint16_t table_7[304] = {
     0, 0, 0, 0, 0, 0, 0, 0, 16514, 16514, 16387, 16387,
@@ -263,36 +276,6 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
     return 0;
 }
 
-static const uint16_t table_9[] = {
-  65535, 0, 255, 9, 52, 9, 36, 9, 20, 9, 49, 9, 35, 8, 35, 8, 19,
-  8, 19, 8, 50, 8, 50, 8, 51, 7, 51, 7, 51, 7, 51, 7, 34, 7, 34,
-  7, 34, 7, 34, 7, 18, 7, 18, 7, 18, 7, 18, 7, 33, 7, 33, 7, 33,
-  7, 33, 7, 17, 7, 17, 7, 17, 7, 17, 7, 4, 6, 4, 6, 4, 6, 4, 6,
-  4, 6, 4, 6, 4, 6, 4, 6, 48, 6, 48, 6, 48, 6, 48, 6, 48, 6, 48,
-  6, 48, 6, 48, 6, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3,
-  5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 3, 5, 32, 4, 32,
-  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
-  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
-  4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32, 4, 32,
-  4, 32, 4, 32, 4, 32, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
-  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
-  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16,
-  4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 16, 4, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2,
-  3, 2, 3, 2, 3, 2, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1,
-  3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 0, 1, 0, 0
-};
-
 static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                         AVFrame *frame, AVFrame *prev)
 {
@@ -303,8 +286,8 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
-            unsigned cbphi, cbplo, value, skip;
-            int reverse, intra_block;
+            int reverse, intra_block, value;
+            unsigned cbphi, cbplo;
 
             if (get_bits1(gb)) {
                 copy_block16(frame->data[0] + y * frame->linesize[0] + x,
@@ -319,14 +302,9 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                 continue;
             }
 
-            value = show_bits(gb, 9);
-            if (value > 256)
-                value = 256;
-            skip = table_9[2 * value + 1];
-            value = table_9[2 * value];
-            if (skip <= 0)
+            value = get_vlc2(gb, blktype_tab.table, blktype_tab.bits, 1);
+            if (value < 0)
                 return AVERROR_INVALIDDATA;
-            skip_bits(gb, skip);
 
             intra_block = value & 0x07;
             reverse = intra_block == 3;
@@ -509,8 +487,10 @@ static av_cold int decode_init(AVCodecContext *avctx)
         AV_WL64(array, index);
         init_get_bits8(&gb, array, sizeof(array));
         code = show_bits(&gb, 9);
-        len = table_9[2 * code + 1];
-        code = table_9[2 * code];
+        if (code > 256)
+            code = 256;
+        len = table_8[2 * code + 1];
+        code = table_8[2 * code];
         printf("code: %5d, len:%d, bits:%X\n", code, len, show_bits(&gb, 9) >> (9 - len));
         index += 1;
     }
@@ -520,6 +500,9 @@ static av_cold int decode_init(AVCodecContext *avctx)
 
     INIT_VLC_SPARSE_STATIC(&cbphi_tab, 6, FF_ARRAY_ELEMS(cbphi_bits),
                            cbphi_bits, 1, 1, cbphi_codes, 1, 1, NULL, 0, 0, 64);
+
+    INIT_VLC_SPARSE_STATIC(&blktype_tab, 9, FF_ARRAY_ELEMS(blktype_bits),
+                           blktype_bits, 1, 1, blktype_codes, 1, 1, blktype_symbols, 1, 1, 512);
 
     return 0;
 }
