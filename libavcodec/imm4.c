@@ -124,7 +124,7 @@ static const uint8_t table_8[] = {
     5,   5,   0,   0,   0,   0
 };
 
-static int get_value2(GetBitContext *gb, int x)
+static int get_cbphi(GetBitContext *gb, int x)
 {
     int value, skip;
 
@@ -240,15 +240,14 @@ static int decode_intra(AVCodecContext *avctx, GetBitContext *gb, AVFrame *frame
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
-            unsigned value2, value;
+            unsigned cbphi, cbplo;
 
-            value = get_vlc2(gb, cbplo_tab.table, cbplo_tab.bits, 1) >> 4;
+            cbplo = get_vlc2(gb, cbplo_tab.table, cbplo_tab.bits, 1) >> 4;
             skip_bits1(gb);
 
-            value2 = get_value2(gb, 1);
+            cbphi = get_cbphi(gb, 1);
 
-            value = value | (value2 << 2);
-            ret = decode_blocks(avctx, gb, value, 0);
+            ret = decode_blocks(avctx, gb, cbplo | (cbphi << 2), 0);
             if (ret < 0)
                 return ret;
 
@@ -310,7 +309,7 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
 
     for (y = 0; y < avctx->height; y += 16) {
         for (x = 0; x < avctx->width; x += 16) {
-            unsigned value2, value, skip;
+            unsigned cbphi, cbplo, value, skip;
             int reverse, intra_block;
 
             if (get_bits1(gb)) {
@@ -340,11 +339,10 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
             if (reverse)
                 skip_bits1(gb);
 
-            value = value >> 4;
-            value2 = get_value2(gb, reverse);
-            value = value | (value2 << 2);
+            cbplo = value >> 4;
+            cbphi = get_cbphi(gb, reverse);
             if (intra_block) {
-                ret = decode_blocks(avctx, gb, value, 0);
+                ret = decode_blocks(avctx, gb, cbplo | (cbphi << 2), 0);
                 if (ret < 0)
                     return ret;
 
@@ -362,7 +360,7 @@ static int decode_inter(AVCodecContext *avctx, GetBitContext *gb,
                                  frame->linesize[2], s->block[5]);
             } else {
                 skip_bits(gb, 2);
-                ret = decode_blocks(avctx, gb, value, 1);
+                ret = decode_blocks(avctx, gb, cbplo | (cbphi << 2), 1);
                 if (ret < 0)
                     return ret;
 
