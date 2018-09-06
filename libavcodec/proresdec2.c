@@ -67,7 +67,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
 static int decode_frame_header(ProresContext *ctx, const uint8_t *buf,
                                const int data_size, AVCodecContext *avctx)
 {
-    int hdr_size, width, height, flags;
+    int hdr_size, flags;
     int version;
     const uint8_t *ptr;
 
@@ -85,11 +85,11 @@ static int decode_frame_header(ProresContext *ctx, const uint8_t *buf,
         return AVERROR_PATCHWELCOME;
     }
 
-    width  = AV_RB16(buf + 8);
-    height = AV_RB16(buf + 10);
-    if (width != avctx->width || height != avctx->height) {
+    ctx->width  = AV_RB16(buf + 8);
+    ctx->height = AV_RB16(buf + 10);
+    if (ctx->width >> avctx->lowres != avctx->width || ctx->height >> avctx->lowres != avctx->height) {
         av_log(avctx, AV_LOG_ERROR, "picture resolution change: %dx%d -> %dx%d\n",
-               avctx->width, avctx->height, width, height);
+               avctx->width, avctx->height, ctx->width >> avctx->lowres, ctx->height >> avctx->lowres);
         return AVERROR_PATCHWELCOME;
     }
 
@@ -180,11 +180,11 @@ static int decode_picture_header(AVCodecContext *avctx, const uint8_t *buf, cons
         return AVERROR_INVALIDDATA;
     }
 
-    ctx->mb_width  = (avctx->width  + 15) >> 4;
+    ctx->mb_width  = (ctx->width  + 15) >> 4;
     if (ctx->frame_type)
-        ctx->mb_height = (avctx->height + 31) >> 5;
+        ctx->mb_height = (ctx->height + 31) >> 5;
     else
-        ctx->mb_height = (avctx->height + 15) >> 4;
+        ctx->mb_height = (ctx->height + 15) >> 4;
 
     // QT ignores the written value
     // slice_count = AV_RB16(buf + 5);
@@ -393,11 +393,11 @@ static int decode_slice_luma(AVCodecContext *avctx, SliceContext *slice,
     block = blocks;
     for (i = 0; i < slice->mb_count; i++) {
         ctx->prodsp.idct_put(dst, dst_stride, block+(0<<6), qmat);
-        ctx->prodsp.idct_put(dst             +8, dst_stride, block+(1<<6), qmat);
-        ctx->prodsp.idct_put(dst+4*dst_stride  , dst_stride, block+(2<<6), qmat);
-        ctx->prodsp.idct_put(dst+4*dst_stride+8, dst_stride, block+(3<<6), qmat);
+        ctx->prodsp.idct_put(dst              + (8 >> avctx->lowres), dst_stride, block+(1<<6), qmat);
+        ctx->prodsp.idct_put(dst+((4*dst_stride) >> avctx->lowres), dst_stride, block+(2<<6), qmat);
+        ctx->prodsp.idct_put(dst+((4*dst_stride) >> avctx->lowres) + (8 >> avctx->lowres), dst_stride, block+(3<<6), qmat);
         block += 4*64;
-        dst += 16;
+        dst += 16 >> avctx->lowres;
     }
     return 0;
 }
@@ -428,9 +428,9 @@ static int decode_slice_chroma(AVCodecContext *avctx, SliceContext *slice,
     for (i = 0; i < slice->mb_count; i++) {
         for (j = 0; j < log2_blocks_per_mb; j++) {
             ctx->prodsp.idct_put(dst,              dst_stride, block+(0<<6), qmat);
-            ctx->prodsp.idct_put(dst+4*dst_stride, dst_stride, block+(1<<6), qmat);
+            ctx->prodsp.idct_put(dst+((4*dst_stride) >> avctx->lowres), dst_stride, block+(1<<6), qmat);
             block += 2*64;
-            dst += 8;
+            dst += 8 >> avctx->lowres;
         }
     }
     return 0;
@@ -572,10 +572,10 @@ static int decode_slice_thread(AVCodecContext *avctx, void *arg, int jobnr, int 
         log2_chroma_blocks_per_mb = 1;
     }
 
-    dest_y = pic->data[0] + (slice->mb_y << 4) * luma_stride + (slice->mb_x << 5);
-    dest_u = pic->data[1] + (slice->mb_y << 4) * chroma_stride + (slice->mb_x << mb_x_shift);
-    dest_v = pic->data[2] + (slice->mb_y << 4) * chroma_stride + (slice->mb_x << mb_x_shift);
-    dest_a = pic->data[3] + (slice->mb_y << 4) * luma_stride + (slice->mb_x << 5);
+    dest_y = pic->data[0] + (slice->mb_y << (4 - avctx->lowres)) * luma_stride + ((slice->mb_x << 5) >> avctx->lowres);
+    dest_u = pic->data[1] + (slice->mb_y << (4 - avctx->lowres)) * chroma_stride + ((slice->mb_x << mb_x_shift) >> avctx->lowres);
+    dest_v = pic->data[2] + (slice->mb_y << (4 - avctx->lowres)) * chroma_stride + ((slice->mb_x << mb_x_shift) >> avctx->lowres);
+    dest_a = pic->data[3] + (slice->mb_y << (4 - avctx->lowres)) * luma_stride + ((slice->mb_x << 5) >> avctx->lowres);
 
     if (ctx->frame_type && ctx->first_field ^ ctx->frame->top_field_first) {
         dest_y += pic->linesize[0];
@@ -605,8 +605,8 @@ static int decode_slice_thread(AVCodecContext *avctx, void *arg, int jobnr, int 
     else {
         size_t mb_max_x = slice->mb_count << (mb_x_shift - 1);
         size_t i, j;
-        for (i = 0; i < 16; ++i)
-            for (j = 0; j < mb_max_x; ++j) {
+        for (i = 0; i < 16 >> avctx->lowres; ++i)
+            for (j = 0; j < mb_max_x >> avctx->lowres; ++j) {
                 *(uint16_t*)(dest_u + (i * chroma_stride) + (j << 1)) = 511;
                 *(uint16_t*)(dest_v + (i * chroma_stride) + (j << 1)) = 511;
             }
@@ -729,5 +729,6 @@ AVCodec ff_prores_decoder = {
     .init_thread_copy = ONLY_IF_THREADS_ENABLED(decode_init_thread_copy),
     .close          = decode_close,
     .decode         = decode_frame,
+    .max_lowres     = 3,
     .capabilities   = AV_CODEC_CAP_DR1 | AV_CODEC_CAP_SLICE_THREADS | AV_CODEC_CAP_FRAME_THREADS,
 };

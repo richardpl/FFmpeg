@@ -43,6 +43,7 @@ typedef struct {
     uint8_t qmat_chroma[64];
     SliceContext *slices;
     int slice_count;             ///< number of slices in the current picture
+    int width, height;
     unsigned mb_width;           ///< width of the current picture in mb
     unsigned mb_height;          ///< height of the current picture in mb
     uint8_t progressive_scan[64];

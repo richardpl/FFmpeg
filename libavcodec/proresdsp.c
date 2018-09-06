@@ -55,9 +55,19 @@ static void prores_idct_put_c(uint16_t *out, ptrdiff_t linesize, int16_t *block,
     put_pixels(out, linesize >> 1, block);
 }
 
+static void prores_idct1_put_c(uint16_t *out, ptrdiff_t linesize, int16_t *block, const int16_t *qmat)
+{
+    ff_prores_idct1(block, qmat);
+    out[0] = CLIP(block[0]);
+}
+
 av_cold void ff_proresdsp_init(ProresDSPContext *dsp, AVCodecContext *avctx)
 {
-    dsp->idct_put = prores_idct_put_c;
+    if (avctx->lowres == 3) {
+        dsp->idct_put = prores_idct1_put_c;
+    } else {
+        dsp->idct_put = prores_idct_put_c;
+    }
     dsp->idct_permutation_type = FF_IDCT_PERM_NONE;
 
     if (ARCH_X86)

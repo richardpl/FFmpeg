@@ -236,6 +236,13 @@ void ff_simple_idct44_add(uint8_t *dest, ptrdiff_t line_size, int16_t *block)
     }
 }
 
+void ff_prores_idct1(int16_t *block, const int16_t *qmat)
+{
+    block[0] *= qmat[0];
+    block[0] += 1024 * 16;
+    block[0] >>= 5;
+}
+
 void ff_prores_idct(int16_t *block, const int16_t *qmat)
 {
     int i;
