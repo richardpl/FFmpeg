@@ -47,6 +47,7 @@
 
 typedef struct RemapContext {
     const AVClass *class;
+    int interpolation;
     int nb_planes;
     int nb_components;
     int step;
@@ -59,6 +60,9 @@ typedef struct RemapContext {
 #define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
 
 static const AVOption remap_options[] = {
+    { "interp", "select interpolation mode", OFFSET(interpolation),    AV_OPT_TYPE_INT  , {.i64=0}, 0, 1, FLAGS, "interp" },
+        { "nearest",  "use values from the nearest defined points", 0, AV_OPT_TYPE_CONST, {.i64=0}, 0, 0, FLAGS, "interp" },
+        { "bilinear", "use values from the linear interpolation",   0, AV_OPT_TYPE_CONST, {.i64=1}, 0, 0, FLAGS, "interp" },
     { NULL }
 };
 
@@ -121,6 +125,72 @@ fail:
     return ret;
 }
 
+#define DEFINE_INTERP_NEAREST_PLANAR(bits)                                              \
+static av_always_inline int interp_nearest_planar##bits(const uint##bits##_t *src,      \
+                                                   int slinesize,                       \
+                                                   const uint16_t *xmap, int xlinesize, \
+                                                   const uint16_t *ymap, int ylinesize, \
+                                                   int w, int h, int x, int y)          \
+{                                                                                       \
+    if (ymap[x] < h && xmap[x] < w) {                                                   \
+        return src[ymap[x] * slinesize + xmap[x]];                                      \
+    }                                                                                   \
+    return 0;                                                                           \
+}
+
+#define DEFINE_INTERP_NEAREST_PACKED(bits)                                              \
+static av_always_inline int interp_nearest_packed##bits(const uint##bits##_t *src,      \
+                                                   int slinesize,                       \
+                                                   const uint16_t *xmap, int xlinesize, \
+                                                   const uint16_t *ymap, int ylinesize, \
+                                                   int w, int h, int x, int y,          \
+                                                   int step, int c)                     \
+{                                                                                       \
+    if (ymap[x] < h && xmap[x] < w) {                                                   \
+        return src[ymap[x] * slinesize + xmap[x] * step + c];                           \
+    }                                                                                   \
+    return 0;                                                                           \
+}
+
+#define DEFINE_INTERP_BILINEAR_PLANAR(bits)                                             \
+static av_always_inline int interp_bilinear_planar##bits(const uint##bits##_t *src,     \
+                                                   int slinesize,                       \
+                                                   const uint16_t *xmap, int xlinesize, \
+                                                   const uint16_t *ymap, int ylinesize, \
+                                                   int w, int h, int x, int y)          \
+{                                                                                       \
+    if (ymap[x] < h && xmap[x] < w) {                                                   \
+        return src[ymap[x] * slinesize + xmap[x]];                                      \
+    }                                                                                   \
+    return 0;                                                                           \
+}
+
+#define DEFINE_INTERP_BILINEAR_PACKED(bits)                                             \
+static av_always_inline int interp_bilinear_packed##bits(const uint##bits##_t *src,     \
+                                                   int slinesize,                       \
+                                                   const uint16_t *xmap, int xlinesize, \
+                                                   const uint16_t *ymap, int ylinesize, \
+                                                   int w, int h, int x, int y,          \
+                                                   int step, int c)                     \
+{                                                                                       \
+    if (ymap[x] < h && xmap[x] < w) {                                                   \
+        return src[ymap[x] * slinesize + xmap[x] * step + c];                           \
+    }                                                                                   \
+    return 0;                                                                           \
+}
+
+DEFINE_INTERP_NEAREST_PLANAR(8)
+DEFINE_INTERP_NEAREST_PLANAR(16)
+
+DEFINE_INTERP_BILINEAR_PLANAR(8)
+DEFINE_INTERP_BILINEAR_PLANAR(16)
+
+DEFINE_INTERP_NEAREST_PACKED(8)
+DEFINE_INTERP_NEAREST_PACKED(16)
+
+DEFINE_INTERP_BILINEAR_PACKED(8)
+DEFINE_INTERP_BILINEAR_PACKED(16)
+
 /**
  * remap_planar algorithm expects planes of same size
  * pixels are copied from source to target using :
@@ -151,11 +221,9 @@ static int remap_planar##bits##_##name##_slice(AVFilterContext *ctx, void *arg, 
                                                                                             \
         for (y = slice_start; y < slice_end; y++) {                                         \
             for (x = 0; x < out->width; x++) {                                              \
-                if (ymap[x] < in->height && xmap[x] < in->width) {                          \
-                    dst[x] = src[ymap[x] * slinesize + xmap[x]];                            \
-                } else {                                                                    \
-                    dst[x] = 0;                                                             \
-                }                                                                           \
+                dst[x] = interp_##name##_planar##bits(src, slinesize, xmap, xlinesize,      \
+                                                      ymap, ylinesize, in->width,           \
+                                                      in->height, x, y);                    \
             }                                                                               \
             dst  += dlinesize;                                                              \
             xmap += xlinesize;                                                              \
@@ -168,6 +236,9 @@ static int remap_planar##bits##_##name##_slice(AVFilterContext *ctx, void *arg, 
 
 DEFINE_REMAP_PLANAR_FUNC(nearest, 8, 1)
 DEFINE_REMAP_PLANAR_FUNC(nearest, 16, 2)
+
+DEFINE_REMAP_PLANAR_FUNC(bilinear, 8, 1)
+DEFINE_REMAP_PLANAR_FUNC(bilinear, 16, 2)
 
 /**
  * remap_packed algorithm expects pixels with both padded bits (step) and
@@ -200,11 +271,10 @@ static int remap_packed##bits##_##name##_slice(AVFilterContext *ctx, void *arg, 
     for (y = slice_start; y < slice_end; y++) {                                             \
         for (x = 0; x < out->width; x++) {                                                  \
             for (c = 0; c < td->nb_components; c++) {                                       \
-                if (ymap[x] < in->height && xmap[x] < in->width) {                          \
-                    dst[x * step + c] = src[ymap[x] * slinesize + xmap[x] * step + c];      \
-                } else {                                                                    \
-                    dst[x * step + c] = 0;                                                  \
-                }                                                                           \
+                dst[x * step + c] = interp_##name##_packed##bits(src, slinesize,            \
+                                                      xmap, xlinesize,                      \
+                                                      ymap, ylinesize, in->width,           \
+                                                      in->height, x, y, step, c);           \
             }                                                                               \
         }                                                                                   \
         dst  += dlinesize;                                                                  \
@@ -218,6 +288,9 @@ static int remap_packed##bits##_##name##_slice(AVFilterContext *ctx, void *arg, 
 DEFINE_REMAP_PACKED_FUNC(nearest, 8, 1)
 DEFINE_REMAP_PACKED_FUNC(nearest, 16, 2)
 
+DEFINE_REMAP_PACKED_FUNC(bilinear, 8, 1)
+DEFINE_REMAP_PACKED_FUNC(bilinear, 16, 2)
+
 static int config_input(AVFilterLink *inlink)
 {
     AVFilterContext *ctx = inlink->dst;
@@ -229,15 +302,15 @@ static int config_input(AVFilterLink *inlink)
 
     if (desc->comp[0].depth == 8) {
         if (s->nb_planes > 1 || s->nb_components == 1) {
-            s->remap_slice = remap_planar8_nearest_slice;
+            s->remap_slice = s->interpolation ? remap_planar8_bilinear_slice : remap_planar8_nearest_slice;
         } else {
-            s->remap_slice = remap_packed8_nearest_slice;
+            s->remap_slice = s->interpolation ? remap_packed8_bilinear_slice : remap_packed8_nearest_slice;
         }
     } else {
         if (s->nb_planes > 1 || s->nb_components == 1) {
-            s->remap_slice = remap_planar16_nearest_slice;
+            s->remap_slice = s->interpolation ? remap_planar16_bilinear_slice : remap_planar16_nearest_slice;
         } else {
-            s->remap_slice = remap_packed16_nearest_slice;
+            s->remap_slice = s->interpolation ? remap_packed16_bilinear_slice : remap_packed16_nearest_slice;
         }
     }
 
