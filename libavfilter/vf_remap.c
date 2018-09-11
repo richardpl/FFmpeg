@@ -60,7 +60,7 @@ typedef struct RemapContext {
 #define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
 
 static const AVOption remap_options[] = {
-    { "interp", "select interpolation mode", OFFSET(interpolation),    AV_OPT_TYPE_INT  , {.i64=0}, 0, 1, FLAGS, "interp" },
+    { "interpolation", "select interpolation mode", OFFSET(interpolation),    AV_OPT_TYPE_INT  , {.i64=0}, 0, 1, FLAGS, "interp" },
         { "nearest",  "use values from the nearest defined points", 0, AV_OPT_TYPE_CONST, {.i64=0}, 0, 0, FLAGS, "interp" },
         { "bilinear", "use values from the linear interpolation",   0, AV_OPT_TYPE_CONST, {.i64=1}, 0, 0, FLAGS, "interp" },
     { NULL }
@@ -125,6 +125,18 @@ fail:
     return ret;
 }
 
+static av_always_inline float lerp(float s, float e, float t)
+{
+    return s + (e - s) * t;
+}
+
+static av_always_inline float blerp(float c00, float c10,
+                                    float c01, float c11,
+                                    float tx, float ty)
+{
+    return lerp(lerp(c00, c10, tx), lerp(c01, c11, tx), ty);
+}
+
 #define DEFINE_INTERP_NEAREST_PLANAR(bits)                                              \
 static av_always_inline int interp_nearest_planar##bits(const uint##bits##_t *src,      \
                                                    int slinesize,                       \
@@ -159,8 +171,17 @@ static av_always_inline int interp_bilinear_planar##bits(const uint##bits##_t *s
                                                    const uint16_t *ymap, int ylinesize, \
                                                    int w, int h, int x, int y)          \
 {                                                                                       \
-    if (ymap[x] < h && xmap[x] < w) {                                                   \
-        return src[ymap[x] * slinesize + xmap[x]];                                      \
+    if (ymap[x] < h && xmap[x] < w &&                                                   \
+        xmap[FFMIN(x + 1, w)] && ymap[FFMIN(x + 1, w)] < h && y + 1 < h) {              \
+        const int x0 = xmap[x]; \
+        const int x1 = xmap[FFMIN(x + 1, w)]; \
+        const int y0 = ymap[x]; \
+        const int y1 = ymap[x + (y < h - 1 ? ylinesize : 0)]; \
+        const int c00 = src[y0 * slinesize + x0]; \
+        const int c10 = src[y0 * slinesize + x1]; \
+        const int c01 = src[y1 * slinesize + x0]; \
+        const int c11 = src[y1 * slinesize + x1]; \
+        return blerp(c00, c10, c01, c11, x1 - x0, y1 - y0);                             \
     }                                                                                   \
     return 0;                                                                           \
 }
