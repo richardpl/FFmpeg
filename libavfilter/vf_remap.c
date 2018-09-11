@@ -125,16 +125,16 @@ fail:
     return ret;
 }
 
-static av_always_inline float lerp(float s, float e, float t)
+static av_always_inline float lerpf(float s, float e, float t)
 {
     return s + (e - s) * t;
 }
 
-static av_always_inline float blerp(float c00, float c10,
-                                    float c01, float c11,
-                                    float tx, float ty)
+static av_always_inline int blerp(int c00, int c10,
+                                  int c01, int c11,
+                                  float tx, float ty)
 {
-    return lerp(lerp(c00, c10, tx), lerp(c01, c11, tx), ty);
+    return lerpf(lerpf(c00, c10, tx), lerpf(c01, c11, tx), ty);
 }
 
 #define DEFINE_INTERP_NEAREST_PLANAR(bits)                                              \
@@ -173,15 +173,27 @@ static av_always_inline int interp_bilinear_planar##bits(const uint##bits##_t *s
 {                                                                                       \
     if (ymap[x] < h && xmap[x] < w &&                                                   \
         xmap[FFMIN(x + 1, w)] && ymap[FFMIN(x + 1, w)] < h && y + 1 < h) {              \
-        const int x0 = xmap[x]; \
-        const int x1 = xmap[FFMIN(x + 1, w)]; \
-        const int y0 = ymap[x]; \
-        const int y1 = ymap[x + (y < h - 1 ? ylinesize : 0)]; \
-        const int c00 = src[y0 * slinesize + x0]; \
-        const int c10 = src[y0 * slinesize + x1]; \
-        const int c01 = src[y1 * slinesize + x0]; \
-        const int c11 = src[y1 * slinesize + x1]; \
-        return blerp(c00, c10, c01, c11, x1 - x0, y1 - y0);                             \
+        const int x0  = xmap[FFMAX(x - 1, 0)];                                          \
+        const int x00 = xmap[x];                                                        \
+        const int x10 = xmap[x + xlinesize];                                            \
+        const int x01 = xmap[FFMIN(x + 1, w-1)];                                        \
+        const int x11 = xmap[FFMIN(x + 1, w-1) + xlinesize];                            \
+                                                                                        \
+        const int y0  = ymap[FFMAX(x - 1, 0)];                                          \
+        const int y00 = ymap[x];                                                        \
+        const int y10 = ymap[x + ylinesize];                                            \
+        const int y01 = ymap[FFMIN(x + 1, w-1)];                                        \
+        const int y11 = ymap[FFMIN(x + 1, w-1) + ylinesize];                            \
+                                                                                        \
+        const int c00 = src[y00 * slinesize + x00];                                     \
+        const int c10 = src[y10 * slinesize + x10];                                     \
+        const int c01 = src[y01 * slinesize + x01];                                     \
+        const int c11 = src[y11 * slinesize + x11];                                     \
+                                                                                        \
+        float tx = .5;                                                                   \
+        float ty = .5;                                                                   \
+                                                                                        \
+        return blerp(c00, c10, c01, c11, tx, ty);                                       \
     }                                                                                   \
     return 0;                                                                           \
 }
