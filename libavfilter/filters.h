@@ -116,6 +116,23 @@ int ff_inlink_consume_samples(AVFilterLink *link, unsigned min, unsigned max,
                             AVFrame **rframe);
 
 /**
+ * Peek samples from the link's FIFO.
+ *
+ * @return  >0 if a samples are available,
+ *          0 and set rframe to NULL if no samples are available,
+ *          or AVERROR code
+ */
+int ff_inlink_peek_samples(AVFilterLink *link, unsigned nb_samples,
+                           AVFrame **rframe);
+
+/**
+ * Skip samples from the link's FIFO.
+ *
+ * @note  May trigger process_command() and/or update is_disabled.
+ */
+void ff_inlink_skip_samples(AVFilterLink *link, unsigned skip);
+
+/**
  * Access a frame in the link fifo without consuming it.
  * The first frame is numbered 0; the designated frame must exist.
  * @return the frame at idx position in the link fifo.

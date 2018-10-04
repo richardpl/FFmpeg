@@ -1147,6 +1147,7 @@ static int samples_ready(AVFilterLink *link, unsigned min)
 }
 
 static int take_samples(AVFilterLink *link, unsigned min, unsigned max,
+                        unsigned peek_samples,
                         AVFrame **rframe)
 {
     AVFrame *frame0, *frame, *buf;
@@ -1158,7 +1159,10 @@ static int take_samples(AVFilterLink *link, unsigned min, unsigned max,
     av_assert1(samples_ready(link, link->min_samples));
     frame0 = frame = ff_framequeue_peek(&link->fifo, 0);
     if (!link->fifo.samples_skipped && frame->nb_samples >= min && frame->nb_samples <= max) {
-        *rframe = ff_framequeue_take(&link->fifo);
+        if (peek_samples)
+            *rframe = av_frame_clone(frame);
+        else
+            *rframe = ff_framequeue_take(&link->fifo);
         return 0;
     }
     nb_frames = 0;
@@ -1188,18 +1192,20 @@ static int take_samples(AVFilterLink *link, unsigned min, unsigned max,
 
     p = 0;
     for (i = 0; i < nb_frames; i++) {
-        frame = ff_framequeue_take(&link->fifo);
+        frame = peek_samples ? ff_framequeue_peek(&link->fifo, i) : ff_framequeue_take(&link->fifo);
         av_samples_copy(buf->extended_data, frame->extended_data, p, 0,
                         frame->nb_samples, link->channels, link->format);
         p += frame->nb_samples;
-        av_frame_free(&frame);
+        if (!peek_samples)
+            av_frame_free(&frame);
     }
     if (p < nb_samples) {
         unsigned n = nb_samples - p;
-        frame = ff_framequeue_peek(&link->fifo, 0);
+        frame = ff_framequeue_peek(&link->fifo, peek_samples ? i : 0);
         av_samples_copy(buf->extended_data, frame->extended_data, p, 0, n,
                         link->channels, link->format);
-        ff_framequeue_skip_samples(&link->fifo, n, link->time_base);
+        if (!peek_samples)
+            ff_framequeue_skip_samples(&link->fifo, n, link->time_base);
     }
 
     *rframe = buf;
@@ -1520,12 +1526,55 @@ int ff_inlink_consume_samples(AVFilterLink *link, unsigned min, unsigned max,
         return 0;
     if (link->status_in)
         min = FFMIN(min, ff_framequeue_queued_samples(&link->fifo));
-    ret = take_samples(link, min, max, &frame);
+    ret = take_samples(link, min, max, 0, &frame);
     if (ret < 0)
         return ret;
     consume_update(link, frame);
     *rframe = frame;
     return 1;
+}
+
+int ff_inlink_peek_samples(AVFilterLink *link, unsigned nb_samples,
+                           AVFrame **rframe)
+{
+    AVFrame *frame;
+    int ret;
+
+    av_assert1(nb_samples);
+    *rframe = NULL;
+    if (!ff_inlink_check_available_samples(link, nb_samples))
+        return 0;
+    if (link->status_in)
+        nb_samples = FFMIN(nb_samples, ff_framequeue_queued_samples(&link->fifo));
+    ret = take_samples(link, nb_samples, nb_samples, 1, &frame);
+    if (ret < 0)
+        return ret;
+    *rframe = frame;
+    return !!frame;
+}
+
+void ff_inlink_skip_samples(AVFilterLink *link, unsigned skip_samples)
+{
+    skip_samples = FFMIN(skip_samples, ff_framequeue_queued_samples(&link->fifo));
+
+    while (skip_samples > 0) {
+        AVFrame *frame = ff_inlink_peek_frame(link, 0);
+        if (skip_samples >= frame->nb_samples) {
+            frame = ff_framequeue_take(&link->fifo);
+            skip_samples -= frame->nb_samples;
+            av_frame_free(&frame);
+        } else {
+            break;
+        }
+    }
+
+    if (skip_samples)
+        ff_framequeue_skip_samples(&link->fifo, skip_samples, link->time_base);
+
+    if (ff_inlink_queued_frames(link)) {
+        AVFrame *frame = ff_inlink_peek_frame(link, 0);
+        consume_update(link, frame);
+    }
 }
 
 AVFrame *ff_inlink_peek_frame(AVFilterLink *link, size_t idx)
