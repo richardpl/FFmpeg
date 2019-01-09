@@ -105,9 +105,20 @@ static float compute_distance_ssd_c(const float *f1, const float *f2, ptrdiff_t 
     return distance;
 }
 
+static void compute_cache_c(float *cache, const float *f,
+                            ptrdiff_t S, ptrdiff_t K,
+                            ptrdiff_t i, ptrdiff_t jj)
+{
+    int v = 0;
+
+    for (int j = jj; j < jj + S; j++, v++)
+        cache[v] += -SQR(f[i - K - 1] - f[j - K - 1]) + SQR(f[i + K] - f[j + K]);
+}
+
 void ff_anlmdn_init(AudioNLMDNDSPContext *dsp)
 {
     dsp->compute_distance_ssd = compute_distance_ssd_c;
+    dsp->compute_cache        = compute_cache_c;
 
     if (ARCH_X86)
         ff_anlmdn_init_x86(dsp);
@@ -166,11 +177,8 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int ch, int nb_jobs)
                 cache[v++] = s->dsp.compute_distance_ssd(f + i, f + j, K);
             }
         } else {
-            for (int j = i - S; j < i; j++, v++)
-                cache[v] = cache[v] - SQR(f[i - K - 1] - f[j - K - 1]) + SQR(f[i + K] - f[j + K]);
-
-            for (int j = i + 1; j <= i + S; j++, v++)
-                cache[v] = cache[v] - SQR(f[i - K - 1] - f[j - K - 1]) + SQR(f[i + K] - f[j + K]);
+            s->dsp.compute_cache(cache, f, S, K, i, i - S);
+            s->dsp.compute_cache(cache + S, f, S, K, i, i + 1);
         }
 
         for (int j = 0; j < v; j++) {
