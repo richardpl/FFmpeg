@@ -2144,6 +2144,24 @@ This filter accepts the following options:
 Set train model file to load. This option is always required.
 @end table
 
+@section asampling
+Downsample or upsample audio by integer factor.
+
+For downsampling only the first out of each factor samples is retained,
+the others are discarded
+For upsampling, factor-1 zero-value samples are inserted between each pair of input samples.
+As a result, the original spectrum is replicated into the new frequency space and attenuated.
+
+A description of the accepted parameters follows.
+
+@table @option
+@item mode
+Can be either @code{down} or @code{up}. Default is @code{up}.
+
+@item factor
+Set factor of downsampling/upsampling. Default is @code{1}.
+@end table
+
 @section asetnsamples
 
 Set the number of samples per each output audio frame.

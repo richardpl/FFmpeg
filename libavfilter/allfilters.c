@@ -66,6 +66,7 @@ extern AVFilter ff_af_arealtime;
 extern AVFilter ff_af_aresample;
 extern AVFilter ff_af_areverse;
 extern AVFilter ff_af_arnndn;
+extern AVFilter ff_af_asampling;
 extern AVFilter ff_af_aselect;
 extern AVFilter ff_af_asendcmd;
 extern AVFilter ff_af_asetnsamples;
