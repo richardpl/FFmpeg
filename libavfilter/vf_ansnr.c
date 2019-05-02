@@ -354,6 +354,7 @@ static int config_output(AVFilterLink *outlink)
     if ((ret = ff_framesync_init(ctx, &s->fs, 2)) < 0)
         return ret;
 
+    in = s->fs.in;
     in[0].time_base = mainlink->time_base;
     in[1].time_base = ctx->inputs[1]->time_base;
     in[0].sync   = 2;
