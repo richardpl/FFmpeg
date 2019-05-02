@@ -41,7 +41,7 @@ typedef struct ANSNRContext {
     FFFrameSync fs;
     int width;
     int height;
-    char *format;
+    int depth;
     float *data_buf;
     double ansnr_sum;
     uint64_t nb_frames;
@@ -127,13 +127,10 @@ static void ansnr_filter2d(const float *filt, const void *src, float *dst,
     float filt_coeff, img_coeff;
     int i, j, filt_i, filt_j, src_i, src_j;
 
-    if (!strcmp(s->format, "yuv420p") || !strcmp(s->format, "yuv422p") ||
-        !strcmp(s->format, "yuv444p")) {
+    if (s->depth == 8) {
         type = 8;
         sz = sizeof(uint8_t);
-    }
-    else if (!strcmp(s->format, "yuv420p10le") || !strcmp(s->format,
-             "yuv422p10le") || !strcmp(s->format, "yuv444p10le")) {
+    } else {
         type = 10;
         sz = sizeof(uint16_t);
     }
@@ -223,8 +220,6 @@ static AVFrame *do_ansnr(AVFilterContext *ctx, AVFrame *main, const AVFrame *ref
 {
     ANSNRContext *s = ctx->priv;
 
-    char *format = s->format;
-
     double score = 0.0;
     double score_psnr = 0.0;
 
@@ -238,14 +233,11 @@ static AVFrame *do_ansnr(AVFilterContext *ctx, AVFrame *main, const AVFrame *ref
 
     uint8_t sz;
 
-    if (!strcmp(format, "yuv420p") || !strcmp(format, "yuv422p") ||
-        !strcmp(format, "yuv444p")) {
+    if (s->depth == 8) {
         peak = 255.0;
         max_psnr = 60.0;
         sz = sizeof(uint8_t);
-    }
-    else if (!strcmp(format, "yuv420p10le") || !strcmp(format, "yuv422p10le") ||
-             !strcmp(format, "yuv444p10le")) {
+    } else {
         peak = 255.75;
         max_psnr = 72.0;
         sz = sizeof(uint16_t);
@@ -278,7 +270,7 @@ static int process_frame(FFFrameSync *fs)
     if (ctx->is_disabled || !ref) {
         out = main;
     } else {
-        out = do_ansnr(s, main, ref);
+        out = do_ansnr(ctx, main, ref);
     }
 
     out->pts = av_rescale_q(s->fs.pts, s->fs.time_base, outlink->time_base);
@@ -304,6 +296,7 @@ static int config_input_ref(AVFilterLink *inlink)
 {
     AVFilterContext *ctx  = inlink->dst;
     ANSNRContext *s = ctx->priv;
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(inlink->format);
     int buf_stride;
     size_t buf_sz;
 
@@ -317,9 +310,9 @@ static int config_input_ref(AVFilterLink *inlink)
         return AVERROR(EINVAL);
     }
 
+    s->depth = desc->comp[0].depth;
     s->width = ctx->inputs[0]->w;
     s->height = ctx->inputs[0]->h;
-    s->format = av_get_pix_fmt_name(ctx->inputs[0]->format);
 
     buf_stride = ALIGN_CEIL(s->width * sizeof(float));
     buf_sz = (size_t)buf_stride * s->height;
@@ -336,7 +329,6 @@ static int config_input_ref(AVFilterLink *inlink)
 
     return 0;
 }
-
 
 static int config_output(AVFilterLink *outlink)
 {
