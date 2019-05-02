@@ -30,7 +30,7 @@
 #include "avfilter.h"
 #include "drawutils.h"
 #include "formats.h"
-#include "framesync2.h"
+#include "framesync.h"
 #include "internal.h"
 #include "adm.h"
 #include "video.h"
@@ -570,7 +570,7 @@ static int do_vmaf(FFFrameSync *fs)
 
     ptrdiff_t ref_stride, main_stride;
 
-    ret = ff_framesync2_dualinput_get(fs, &main, &ref);
+    ret = ff_framesync_dualinput_get(fs, &main, &ref);
     if (ret < 0)
         return ret;
     if (!ref)
@@ -677,7 +677,7 @@ static int config_output(AVFilterLink *outlink)
     AVFilterLink *mainlink = ctx->inputs[0];
     int ret;
 
-    ret = ff_framesync2_init_dualinput(&s->fs, ctx);
+    ret = ff_framesync_init(&s->fs, ctx, 2);
     if (ret < 0)
         return ret;
     outlink->w = mainlink->w;
@@ -685,7 +685,7 @@ static int config_output(AVFilterLink *outlink)
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
     outlink->frame_rate = mainlink->frame_rate;
-    if ((ret = ff_framesync2_configure(&s->fs)) < 0)
+    if ((ret = ff_framesync_configure(&s->fs)) < 0)
         return ret;
 
     return 0;
@@ -694,14 +694,14 @@ static int config_output(AVFilterLink *outlink)
 static int activate(AVFilterContext *ctx)
 {
     ADMContext *s = ctx->priv;
-    return ff_framesync2_activate(&s->fs);
+    return ff_framesync_activate(&s->fs);
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
 {
     ADMContext *s = ctx->priv;
 
-    ff_framesync2_uninit(&s->fs);
+    ff_framesync_uninit(&s->fs);
 
     if (s->nb_frames > 0) {
         av_log(ctx, AV_LOG_INFO, "ADM AVG: %.3f\n", s->adm_sum / s->nb_frames);
