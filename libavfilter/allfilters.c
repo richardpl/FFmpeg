@@ -395,6 +395,7 @@ extern AVFilter ff_vf_vidstabdetect;
 extern AVFilter ff_vf_vidstabtransform;
 extern AVFilter ff_vf_vif;
 extern AVFilter ff_vf_vignette;
+extern AVFilter ff_vf_vmaf;
 extern AVFilter ff_vf_vmafmotion;
 extern AVFilter ff_vf_vpp_qsv;
 extern AVFilter ff_vf_vstack;
