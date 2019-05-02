@@ -28,7 +28,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
-#include "dualinput.h"
+#include "framesync.h"
 #include "drawutils.h"
 #include "formats.h"
 #include "internal.h"
@@ -37,7 +37,7 @@
 
 typedef struct VIFContext {
     const AVClass *class;
-    FFDualInputContext dinput;
+    FFFrameSync fs;
     const AVPixFmtDescriptor *desc;
     int width;
     int height;
@@ -490,15 +490,6 @@ static AVFrame *do_vif(AVFilterContext *ctx, AVFrame *main, const AVFrame *ref)
     return main;
 }
 
-static av_cold int init(AVFilterContext *ctx)
-{
-    VIFContext *s = ctx->priv;
-
-    s->dinput.process = do_vif;
-
-    return 0;
-}
-
 static int query_formats(AVFilterContext *ctx)
 {
     static const enum AVPixelFormat pix_fmts[] = {
@@ -562,12 +553,36 @@ static int config_input_ref(AVFilterLink *inlink)
     return 0;
 }
 
+static int process_frame(FFFrameSync *fs)
+{
+    AVFilterContext *ctx = fs->parent;
+    VIFContext *s = fs->opaque;
+    AVFilterLink *outlink = ctx->outputs[0];
+    AVFrame *out, *main = NULL, *ref = NULL;
+    int ret;
+
+    if ((ret = ff_framesync_get_frame(&s->fs, 0, &main, 0)) < 0 ||
+        (ret = ff_framesync_get_frame(&s->fs, 1, &ref, 0)) < 0)
+        return ret;
+
+    if (ctx->is_disabled || !ref) {
+        out = main;
+    } else {
+        out = do_vif(ctx, main, ref);
+    }
+
+    out->pts = av_rescale_q(s->fs.pts, s->fs.time_base, outlink->time_base);
+
+    return ff_filter_frame(outlink, out);
+}
+
 
 static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
     VIFContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
+    FFFrameSyncIn *in;
     int ret;
 
     outlink->w = mainlink->w;
@@ -575,22 +590,28 @@ static int config_output(AVFilterLink *outlink)
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
     outlink->frame_rate = mainlink->frame_rate;
-    if ((ret = ff_dualinput_init(ctx, &s->dinput)) < 0)
+    if ((ret = ff_framesync_init(&s->fs, ctx, 2)) < 0)
         return ret;
 
-    return 0;
+    in = s->fs.in;
+    in[0].time_base = mainlink->time_base;
+    in[1].time_base = ctx->inputs[1]->time_base;
+    in[0].sync   = 2;
+    in[0].before = EXT_STOP;
+    in[0].after  = EXT_INFINITY;
+    in[1].sync   = 1;
+    in[1].before = EXT_STOP;
+    in[1].after  = EXT_INFINITY;
+    s->fs.opaque   = s;
+    s->fs.on_event = process_frame;
+
+    return ff_framesync_configure(&s->fs);
 }
 
-static int filter_frame(AVFilterLink *inlink, AVFrame *inpicref)
+static int activate(AVFilterContext *ctx)
 {
-    VIFContext *s = inlink->dst->priv;
-    return ff_dualinput_filter_frame(&s->dinput, inlink, inpicref);
-}
-
-static int request_frame(AVFilterLink *outlink)
-{
-    VIFContext *s = outlink->src->priv;
-    return ff_dualinput_request_frame(&s->dinput, outlink);
+    VIFContext *s = ctx->priv;
+    return ff_framesync_activate(&s->fs);
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
@@ -606,18 +627,16 @@ static av_cold void uninit(AVFilterContext *ctx)
     av_free(s->main_data);
     av_free(s->temp);
 
-    ff_dualinput_uninit(&s->dinput);
+    ff_framesync_uninit(&s->fs);
 }
 
 static const AVFilterPad vif_inputs[] = {
     {
         .name         = "main",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
     },{
         .name         = "reference",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
         .config_props = config_input_ref,
     },
     { NULL }
@@ -628,7 +647,6 @@ static const AVFilterPad vif_outputs[] = {
         .name          = "default",
         .type          = AVMEDIA_TYPE_VIDEO,
         .config_props  = config_output,
-        .request_frame = request_frame,
     },
     { NULL }
 };
@@ -636,11 +654,11 @@ static const AVFilterPad vif_outputs[] = {
 AVFilter ff_vf_vif = {
     .name          = "vif",
     .description   = NULL_IF_CONFIG_SMALL("Calculate the VIF between two video streams."),
-    .init          = init,
     .uninit        = uninit,
     .query_formats = query_formats,
     .priv_size     = sizeof(VIFContext),
     .priv_class    = &vif_class,
+    .activate      = activate,
     .inputs        = vif_inputs,
     .outputs       = vif_outputs,
 };
