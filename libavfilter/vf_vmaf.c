@@ -28,7 +28,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
-#include "dualinput.h"
+#include "framesync.h"
 #include "drawutils.h"
 #include "formats.h"
 #include "internal.h"
@@ -38,12 +38,20 @@
 #include "vif.h"
 #include "vmaf.h"
 
+static const float FILTER_5[5] = {
+    0.054488685,
+    0.244201342,
+    0.402619947,
+    0.244201342,
+    0.054488685
+};
+
 typedef struct VMAFContext {
     const AVClass *class;
-    FFDualInputContext dinput;
-    const AVPixFmtDescriptor *desc;
+    FFFrameSync fs;
     int width;
     int height;
+    int depth;
     uint8_t called;
     double score;
     double scores[8];
@@ -624,7 +632,7 @@ static int compute_vmaf(const AVFrame *ref, AVFrame *main, void *ctx)
     motion_px_stride = motion_stride / sizeof(uint16_t);
 
     /** Offset ref and main pixel by OPT_RANGE_PIXEL_OFFSET */
-    if (s->desc->comp[0].depth <= 8) {
+    if (s->depth <= 8) {
         offset_8bit(s, ref, main, stride);
     } else {
         offset_10bit(s, ref, main, stride);
@@ -634,28 +642,28 @@ static int compute_vmaf(const AVFrame *ref, AVFrame *main, void *ctx)
 
     compute_adm2(s->ref_data, s->main_data, w, h, stride, stride, &s->score,
                  &s->score_num, &s->score_den, s->scores, s->adm_data_buf,
-                 s->adm_temp_lo, s->adm_temp_hi);
+                 s->adm_temp_lo, s->adm_temp_hi, s->depth);
     s->nodes[0].index = 1;
     s->nodes[0].value = (double)(slopes[1]) * (double)(s->score_num / s->score_den) + (double)(intercepts[1]);
 
-    if (s->desc->comp[0].depth <= 8) {
-        ref_px_stride = ref_stride / sizeof(uint8_t);
-        convolution_f32(s->conv_filter, 5, (const uint8_t *) ref->data[0],
-                        s->blur_data, s->temp_data, s->width, s->height,
-                        ref_px_stride, motion_px_stride, 8);
-    } else {
-        ref_px_stride = ref_stride / sizeof(uint16_t);
-        convolution_f32(s->conv_filter, 5, (const uint16_t *) ref->data[0],
-                        s->blur_data, s->temp_data, s->width, s->height,
-                        ref_px_stride, motion_px_stride, 10);
-    }
+    //if (s->depth <= 8) {
+    //    ref_px_stride = ref_stride / sizeof(uint8_t);
+    //    convolution_f32(s->conv_filter, 5, (const uint8_t *) ref->data[0],
+    //                    s->blur_data, s->temp_data, s->width, s->height,
+    //                    ref_px_stride, motion_px_stride, 8);
+    //} else {
+    //    ref_px_stride = ref_stride / sizeof(uint16_t);
+    //    convolution_f32(s->conv_filter, 5, (const uint16_t *) ref->data[0],
+    //                    s->blur_data, s->temp_data, s->width, s->height,
+    //                    ref_px_stride, motion_px_stride, 10);
+    //}
 
-    if(!s->nb_frames) {
-        s->score = 0.0;
-    } else {
-        compute_vmafmotion(s->prev_blur_data, s->blur_data, s->width, s->height,
-                           motion_stride, motion_stride, &s->score);
-    }
+    //if(!s->nb_frames) {
+    //    s->score = 0.0;
+    //} else {
+    //    compute_vmafmotion(s->prev_blur_data, s->blur_data, s->width, s->height,
+    //                       motion_stride, motion_stride, &s->score);
+    //}
 
     memcpy(s->prev_blur_data, s->blur_data, motion_data_sz);
 
@@ -737,7 +745,6 @@ static av_cold int init(AVFilterContext *ctx)
     }
 
     s->called = 1;
-    s->dinput.process = do_vmaf;
 
     return 0;
 }
@@ -766,6 +773,7 @@ static int config_input_ref(AVFilterLink *inlink)
     size_t adm_buf_sz;
     ptrdiff_t vif_buf_stride;
     size_t vif_buf_sz;
+    const AVPixFmtDescriptor *desc;
 
     if (ctx->inputs[0]->w != ctx->inputs[1]->w ||
         ctx->inputs[0]->h != ctx->inputs[1]->h) {
@@ -777,7 +785,8 @@ static int config_input_ref(AVFilterLink *inlink)
         return AVERROR(EINVAL);
     }
 
-    s->desc = av_pix_fmt_desc_get(inlink->format);
+    desc = av_pix_fmt_desc_get(inlink->format);
+    s->depth = desc->comp[0].depth;
     s->width = ctx->inputs[0]->w;
     s->height = ctx->inputs[0]->h;
 
@@ -846,11 +855,35 @@ static int config_input_ref(AVFilterLink *inlink)
     return 0;
 }
 
+static int process_frame(FFFrameSync *fs)
+{
+    AVFilterContext *ctx = fs->parent;
+    VMAFContext *s = fs->opaque;
+    AVFilterLink *outlink = ctx->outputs[0];
+    AVFrame *out, *main = NULL, *ref = NULL;
+    int ret;
+
+    if ((ret = ff_framesync_get_frame(&s->fs, 0, &main, 0)) < 0 ||
+        (ret = ff_framesync_get_frame(&s->fs, 1, &ref, 0)) < 0)
+        return ret;
+
+    if (ctx->is_disabled || !ref) {
+        out = main;
+    } else {
+        out = do_vmaf(ctx, main, ref);
+    }
+
+    out->pts = av_rescale_q(s->fs.pts, s->fs.time_base, outlink->time_base);
+
+    return ff_filter_frame(outlink, out);
+}
+
 static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
     VMAFContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
+    FFFrameSyncIn *in;
     int ret;
 
     outlink->w = mainlink->w;
@@ -858,22 +891,22 @@ static int config_output(AVFilterLink *outlink)
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
     outlink->frame_rate = mainlink->frame_rate;
-    if ((ret = ff_dualinput_init(ctx, &s->dinput)) < 0)
+    if ((ret = ff_framesync_init(&s->fs, ctx, 2)) < 0)
         return ret;
 
-    return 0;
-}
+    in = s->fs.in;
+    in[0].time_base = mainlink->time_base;
+    in[1].time_base = ctx->inputs[1]->time_base;
+    in[0].sync   = 2;
+    in[0].before = EXT_STOP;
+    in[0].after  = EXT_INFINITY;
+    in[1].sync   = 1;
+    in[1].before = EXT_STOP;
+    in[1].after  = EXT_INFINITY;
+    s->fs.opaque   = s;
+    s->fs.on_event = process_frame;
 
-static int filter_frame(AVFilterLink *inlink, AVFrame *inpicref)
-{
-    VMAFContext *s = inlink->dst->priv;
-    return ff_dualinput_filter_frame(&s->dinput, inlink, inpicref);
-}
-
-static int request_frame(AVFilterLink *outlink)
-{
-    VMAFContext *s = outlink->src->priv;
-    return ff_dualinput_request_frame(&s->dinput, outlink);
+    return ff_framesync_configure(&s->fs);
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
@@ -905,18 +938,22 @@ static av_cold void uninit(AVFilterContext *ctx)
         av_free(s->vif_temp);
     }
 
-    ff_dualinput_uninit(&s->dinput);
+    ff_framesync_uninit(&s->fs);
+}
+
+static int activate(AVFilterContext *ctx)
+{
+    VMAFContext *s = ctx->priv;
+    return ff_framesync_activate(&s->fs);
 }
 
 static const AVFilterPad vmaf_inputs[] = {
     {
         .name         = "main",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
     },{
         .name         = "reference",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
         .config_props = config_input_ref,
     },
     { NULL }
@@ -927,7 +964,6 @@ static const AVFilterPad vmaf_outputs[] = {
         .name          = "default",
         .type          = AVMEDIA_TYPE_VIDEO,
         .config_props  = config_output,
-        .request_frame = request_frame,
     },
     { NULL }
 };
@@ -937,6 +973,7 @@ AVFilter ff_vf_vmaf = {
     .description   = NULL_IF_CONFIG_SMALL("Calculate the VMAF between two video streams."),
     .init          = init,
     .uninit        = uninit,
+    .activate      = activate,
     .query_formats = query_formats,
     .priv_size     = sizeof(VMAFContext),
     .priv_class    = &vmaf_class,
