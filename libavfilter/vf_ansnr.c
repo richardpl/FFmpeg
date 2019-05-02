@@ -29,7 +29,7 @@
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avfilter.h"
-#include "dualinput.h"
+#include "framesync.h"
 #include "drawutils.h"
 #include "formats.h"
 #include "internal.h"
@@ -38,7 +38,7 @@
 
 typedef struct ANSNRContext {
     const AVClass *class;
-    FFDualInputContext dinput;
+    FFFrameSync fs;
     int width;
     int height;
     char *format;
@@ -263,13 +263,27 @@ static AVFrame *do_ansnr(AVFilterContext *ctx, AVFrame *main, const AVFrame *ref
     return main;
 }
 
-static av_cold int init(AVFilterContext *ctx)
+static int process_frame(FFFrameSync *fs)
 {
-    ANSNRContext *s = ctx->priv;
+    AVFilterContext *ctx = fs->parent;
+    ANSNRContext *s = fs->opaque;
+    AVFilterLink *outlink = ctx->outputs[0];
+    AVFrame *out, *main = NULL, *ref = NULL;
+    int ret;
 
-    s->dinput.process = do_ansnr;
+    if ((ret = ff_framesync_get_frame(&s->fs, 0, &main, 0)) < 0 ||
+        (ret = ff_framesync_get_frame(&s->fs, 1, &ref, 0)) < 0)
+        return ret;
 
-    return 0;
+    if (ctx->is_disabled || !ref) {
+        out = main;
+    } else {
+        out = do_ansnr(s, main, ref);
+    }
+
+    out->pts = av_rescale_q(s->fs.pts, s->fs.time_base, outlink->time_base);
+
+    return ff_filter_frame(outlink, out);
 }
 
 static int query_formats(AVFilterContext *ctx)
@@ -329,6 +343,7 @@ static int config_output(AVFilterLink *outlink)
     AVFilterContext *ctx = outlink->src;
     ANSNRContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
+    FFFrameSyncIn *in;
     int ret;
 
     outlink->w = mainlink->w;
@@ -336,29 +351,34 @@ static int config_output(AVFilterLink *outlink)
     outlink->time_base = mainlink->time_base;
     outlink->sample_aspect_ratio = mainlink->sample_aspect_ratio;
     outlink->frame_rate = mainlink->frame_rate;
-    if ((ret = ff_dualinput_init(ctx, &s->dinput)) < 0)
+    if ((ret = ff_framesync_init(ctx, &s->fs, 2)) < 0)
         return ret;
 
-    return 0;
+    in[0].time_base = mainlink->time_base;
+    in[1].time_base = ctx->inputs[1]->time_base;
+    in[0].sync   = 2;
+    in[0].before = EXT_STOP;
+    in[0].after  = EXT_INFINITY;
+    in[1].sync   = 1;
+    in[1].before = EXT_STOP;
+    in[1].after  = EXT_INFINITY;
+    s->fs.opaque   = s;
+    s->fs.on_event = process_frame;
+
+    return ff_framesync_configure(&s->fs);
 }
 
-static int filter_frame(AVFilterLink *inlink, AVFrame *inpicref)
+static int activate(AVFilterContext *ctx)
 {
-    ANSNRContext *s = inlink->dst->priv;
-    return ff_dualinput_filter_frame(&s->dinput, inlink, inpicref);
-}
-
-static int request_frame(AVFilterLink *outlink)
-{
-    ANSNRContext *s = outlink->src->priv;
-    return ff_dualinput_request_frame(&s->dinput, outlink);
+    ANSNRContext *s = ctx->priv;
+    return ff_framesync_activate(&s->fs);
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
 {
     ANSNRContext *s = ctx->priv;
 
-    ff_dualinput_uninit(&s->dinput);
+    ff_framesync_uninit(&s->fs);
 
     av_free(s->data_buf);
 
@@ -370,11 +390,9 @@ static const AVFilterPad ansnr_inputs[] = {
     {
         .name         = "main",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
     },{
         .name         = "reference",
         .type         = AVMEDIA_TYPE_VIDEO,
-        .filter_frame = filter_frame,
         .config_props = config_input_ref,
     },
     { NULL }
@@ -385,7 +403,6 @@ static const AVFilterPad ansnr_outputs[] = {
         .name          = "default",
         .type          = AVMEDIA_TYPE_VIDEO,
         .config_props  = config_output,
-        .request_frame = request_frame,
     },
     { NULL }
 };
@@ -393,7 +410,7 @@ static const AVFilterPad ansnr_outputs[] = {
 AVFilter ff_vf_ansnr = {
     .name          = "ansnr",
     .description   = NULL_IF_CONFIG_SMALL("Calculate the ANSNR between two video streams."),
-    .init          = init,
+    .activate      = activate,
     .uninit        = uninit,
     .query_formats = query_formats,
     .priv_size     = sizeof(ANSNRContext),
