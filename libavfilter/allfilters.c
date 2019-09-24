@@ -420,6 +420,7 @@ extern AVFilter ff_vf_unsharp_opencl;
 extern AVFilter ff_vf_untile;
 extern AVFilter ff_vf_uspp;
 extern AVFilter ff_vf_v360;
+extern AVFilter ff_vf_v360_vulkan;
 extern AVFilter ff_vf_vaguedenoiser;
 extern AVFilter ff_vf_vectorscope;
 extern AVFilter ff_vf_vflip;
