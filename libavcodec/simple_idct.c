@@ -267,3 +267,47 @@ void ff_prores_idct_12(int16_t *block, const int16_t *qmat)
         idctSparseCol_int16_12bit(block + i);
     }
 }
+
+static inline void idct4(int16_t *dest, ptrdiff_t line_size, int16_t *in)
+{
+    const float a = 0.270598050073099f;
+    const float b = 0.653281482438188f;
+    const float c = 0.5f;
+    float va = in[8*0] * c;
+    float vb = in[8*2] * c;
+    float vc = in[8*1];
+    float vd = in[8*3];
+    float vab = va + vb;
+    float vamb = va - vb;
+    float vcavdb = vc * a - vd * b;
+    float vdavcb = vd * a + vc * b;
+    float d0 =
+        vab + vdavcb;
+    float d1 =
+        vamb + vcavdb;
+    float d2 =
+        vamb - vcavdb;
+    float d3 =
+        vab - vdavcb;
+    dest[0] = d0;
+    dest += line_size;
+    dest[0] = d1;
+    dest += line_size;
+    dest[0] = d2;
+    dest += line_size;
+    dest[0] = d3;
+}
+
+void ff_simple_idct84_put_int16_12bit(uint8_t *dest_, ptrdiff_t line_size, int16_t *block)
+{
+    uint16_t *dest = (uint16_t *)dest_;
+    int i;
+
+    line_size /= 2;
+
+    for (i = 0; i < 4; i++)
+        idctRowCondDC_int16_12bit(block + i * 8, 0);
+
+    for (i = 0; i < 8; i++)
+        idct4(dest + i, line_size, block + i);
+}
