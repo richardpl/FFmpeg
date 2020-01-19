@@ -447,6 +447,7 @@ extern AVFilter ff_vf_vmafmotion;
 extern AVFilter ff_vf_vpp_qsv;
 extern AVFilter ff_vf_vstack;
 extern AVFilter ff_vf_w3fdif;
+extern AVFilter ff_vf_warp;
 extern AVFilter ff_vf_waveform;
 extern AVFilter ff_vf_weave;
 extern AVFilter ff_vf_xbr;
