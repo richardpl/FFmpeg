@@ -356,7 +356,6 @@ static const float noise_category6[20] = {
 typedef struct SirenContext {
     GetBitContext gb;
 
-    int packet_size;
     int rate_control_possibilities;
     int esf_adjustment;
     int number_of_regions;
@@ -371,7 +370,6 @@ typedef struct SirenContext {
     int power_categories[32];
     int category_balance[32];
     float standard_deviation[64];
-    float deviation_inverse[64];
     float backup_frame[FRAME_SIZE];
 
     AVFloatDSPContext *fdsp;
@@ -400,7 +398,6 @@ static av_cold int siren_init(AVCodecContext *avctx)
     avctx->channel_layout = AV_CH_LAYOUT_MONO;
     avctx->sample_fmt     = AV_SAMPLE_FMT_FLT;
 
-    s->packet_size = 40;
     s->rate_control_possibilities = 16;
     s->esf_adjustment = 7;
     s->number_of_regions = 14;
@@ -412,7 +409,6 @@ static av_cold int siren_init(AVCodecContext *avctx)
         float region_power = powf(10, (i - 24) * 0.3010299957);
 
         s->standard_deviation[i] = sqrtf(region_power);
-        s->deviation_inverse[i] = 1.f / s->standard_deviation[i];
     }
 
     for (i = 0; i < FRAME_SIZE; i++) {
@@ -442,10 +438,8 @@ static int decode_envelope(SirenContext *s, GetBitContext *gb,
             index = differential_decoder_tree[i - 1][index][get_bits1(gb)];
         } while (index > 0);
 
-        absolute_region_power_index[i] =
-            absolute_region_power_index[i - 1] - index - 12;
-        decoder_standard_deviation[i] =
-            s->standard_deviation[absolute_region_power_index[i] + 24];
+        absolute_region_power_index[i] = absolute_region_power_index[i - 1] - index - 12;
+        decoder_standard_deviation[i] = s->standard_deviation[absolute_region_power_index[i] + 24];
     }
 
     return get_bits_count(gb);
@@ -689,7 +683,7 @@ static int siren_decode(AVCodecContext *avctx, void *data,
     GetBitContext *gb = &s->gb;
     AVFrame *frame = data;
     int ret, number_of_valid_coefs = 20 * s->number_of_regions;
-    int frame_error = 0, i, rate_control = 0;
+    int frame_error = 0, rate_control = 0;
 
     if ((ret = init_get_bits8(gb, pkt->data, pkt->size)) < 0)
         return ret;
@@ -704,7 +698,7 @@ static int siren_decode(AVCodecContext *avctx, void *data,
                        s->absolute_region_power_index, s->power_categories,
                        s->category_balance);
 
-    for (i = 0; i < rate_control; i++) {
+    for (int i = 0; i < rate_control; i++) {
         s->power_categories[s->category_balance[i]]++;
     }
 
@@ -724,19 +718,19 @@ static int siren_decode(AVCodecContext *avctx, void *data,
         frame_error |= 2;
     }
 
-    for (i = 0; i < s->number_of_regions; i++) {
+    for (int i = 0; i < s->number_of_regions; i++) {
         if (s->absolute_region_power_index[i] > 33 ||
             s->absolute_region_power_index[i] < -31)
             frame_error |= 4;
     }
 
     if (frame_error) {
-        for (i = 0; i < number_of_valid_coefs; i++) {
+        for (int i = 0; i < number_of_valid_coefs; i++) {
             s->imdct_in[i] = s->backup_frame[i];
             s->backup_frame[i] = 0;
         }
     } else {
-        for (i = 0; i < number_of_valid_coefs; i++)
+        for (int i = 0; i < number_of_valid_coefs; i++)
             s->backup_frame[i] = s->imdct_in[i];
     }
 
