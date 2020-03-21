@@ -89,6 +89,7 @@ extern AVInputFormat  ff_bink_demuxer;
 extern AVInputFormat  ff_bit_demuxer;
 extern AVOutputFormat ff_bit_muxer;
 extern AVInputFormat  ff_bmv_demuxer;
+extern AVInputFormat  ff_bnsf_demuxer;
 extern AVInputFormat  ff_bfstm_demuxer;
 extern AVInputFormat  ff_brstm_demuxer;
 extern AVInputFormat  ff_boa_demuxer;
