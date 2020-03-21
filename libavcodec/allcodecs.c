@@ -427,6 +427,7 @@ extern AVCodec ff_evrc_decoder;
 extern AVCodec ff_ffwavesynth_decoder;
 extern AVCodec ff_flac_encoder;
 extern AVCodec ff_flac_decoder;
+extern AVCodec ff_g719_decoder;
 extern AVCodec ff_g723_1_encoder;
 extern AVCodec ff_g723_1_decoder;
 extern AVCodec ff_g729_decoder;

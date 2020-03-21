@@ -325,6 +325,7 @@ OBJS-$(CONFIG_FOURXM_DECODER)          += 4xm.o
 OBJS-$(CONFIG_FRAPS_DECODER)           += fraps.o
 OBJS-$(CONFIG_FRWU_DECODER)            += frwu.o
 OBJS-$(CONFIG_G2M_DECODER)             += g2meet.o elsdec.o
+OBJS-$(CONFIG_G719_DECODER)            += g719.o
 OBJS-$(CONFIG_G723_1_DECODER)          += g723_1dec.o g723_1.o \
                                           acelp_vectors.o celp_filters.o celp_math.o
 OBJS-$(CONFIG_G723_1_ENCODER)          += g723_1enc.o g723_1.o \
