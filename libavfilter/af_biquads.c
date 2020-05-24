@@ -97,6 +97,8 @@ enum WidthType {
 typedef struct ChanCache {
     double i1, i2;
     double o1, o2;
+    double ri1, ri2;
+    double ro1, ro2;
     int clippings;
 } ChanCache;
 
@@ -107,6 +109,7 @@ typedef struct BiquadsContext {
     int width_type;
     int poles;
     int csg;
+    int reverse;
 
     double gain;
     double frequency;
@@ -122,10 +125,18 @@ typedef struct BiquadsContext {
     ChanCache *cache;
     int block_align;
 
+    AVFrame *frame;
+    int window_size;
+    int hop_size;
+    double *window_func_lut;
+
     void (*filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, int len,
                    double *i1, double *i2, double *o1, double *o2,
                    double b0, double b1, double b2, double a1, double a2, int *clippings,
                    int disabled);
+    void (*reverse_filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, void *dst,
+                   int len, double *i1, double *i2, double *o1, double *o2,
+                   double b0, double b1, double b2, double a1, double a2, int *clippings);
 } BiquadsContext;
 
 static av_cold int init(AVFilterContext *ctx)
@@ -259,6 +270,99 @@ BIQUAD_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
 BIQUAD_FILTER(flt, float,   -1., 1., 0)
 BIQUAD_FILTER(dbl, double,  -1., 1., 0)
 
+#define BIQUAD_FILTER_REVERSE(name, type, min, max, need_clipping)            \
+static void biquad_reverse_## name (BiquadsContext *s,                        \
+                            const void *input, void *output, void *dst,       \
+                            int len,                                          \
+                            double *in1, double *in2,                         \
+                            double *out1, double *out2,                       \
+                            double b0, double b1, double b2,                  \
+                            double a1, double a2, int *clippings)             \
+{                                                                             \
+    const type *ibuf = input;                                                 \
+    type *obuf = output;                                                      \
+    type *dbuf = dst;                                                         \
+    double o0;                                                                \
+    double i1 = *in1;                                                         \
+    double i2 = *in2;                                                         \
+    double o1 = *out1;                                                        \
+    double o2 = *out2;                                                        \
+    double wet = s->mix;                                                      \
+    double dry = 1. - wet;                                                    \
+    double out;                                                               \
+    int i, j;                                                                 \
+    const double *w = s->window_func_lut;                                     \
+                                                                              \
+    a1 = -a1;                                                                 \
+    a2 = -a2;                                                                 \
+                                                                              \
+    for (i = 0; i+1 < len; i++) {                                             \
+        j = len - 1 - i;                                                      \
+        o2 = i2 * b2 + i1 * b1 + ibuf[j] * b0 + o2 * a2 + o1 * a1;            \
+        i2 = ibuf[j];                                                         \
+        out = o2 * wet + i2 * dry;                                            \
+        if (need_clipping && out < min) {                                     \
+            (*clippings)++;                                                   \
+            obuf[j] = min;                                                    \
+        } else if (need_clipping && out > max) {                              \
+            (*clippings)++;                                                   \
+            obuf[j] = max;                                                    \
+        } else {                                                              \
+            obuf[j] = out;                                                    \
+        }                                                                     \
+        i++;                                                                  \
+        j = len - 1 - i;                                                      \
+        o1 = i1 * b2 + i2 * b1 + ibuf[j] * b0 + o1 * a2 + o2 * a1;            \
+        i1 = ibuf[j];                                                         \
+        out = o1 * wet + i1 * dry;                                            \
+        if (need_clipping && out < min) {                                     \
+            (*clippings)++;                                                   \
+            obuf[j] = min;                                                    \
+        } else if (need_clipping && out > max) {                              \
+            (*clippings)++;                                                   \
+            obuf[j] = max;                                                    \
+        } else {                                                              \
+            obuf[j] = out;                                                    \
+        }                                                                     \
+    }                                                                         \
+    if (i < len) {                                                            \
+        j = len - 1 - i;                                                      \
+        o0 = ibuf[j] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;            \
+        i2 = i1;                                                              \
+        i1 = ibuf[j];                                                         \
+        o2 = o1;                                                              \
+        o1 = o0;                                                              \
+        out = o0 * wet + i1 * dry;                                            \
+        if (need_clipping && out < min) {                                     \
+            (*clippings)++;                                                   \
+            obuf[j] = min;                                                    \
+        } else if (need_clipping && out > max) {                              \
+            (*clippings)++;                                                   \
+            obuf[j] = max;                                                    \
+        } else {                                                              \
+            obuf[j] = out;                                                    \
+        }                                                                     \
+    }                                                                         \
+    *in1  = i1;                                                               \
+    *in2  = i2;                                                               \
+    *out1 = o1;                                                               \
+    *out2 = o2;                                                               \
+                                                                              \
+    for (i = 0; i < len; i++)                                                 \
+        dbuf[i] += obuf[i] * w[i];                                            \
+    for (i = 0; i < s->hop_size; i++)                                         \
+        obuf[i] = dbuf[i];                                                    \
+    memmove(dbuf, dbuf + s->hop_size,                                         \
+            (s->window_size * 2 - s->hop_size) * s->block_align);             \
+    memset(dbuf + s->window_size * 2 - s->hop_size, 0,                        \
+           s->hop_size * s->block_align);                                     \
+}
+
+BIQUAD_FILTER_REVERSE(s16, int16_t, INT16_MIN, INT16_MAX, 1)
+BIQUAD_FILTER_REVERSE(s32, int32_t, INT32_MIN, INT32_MAX, 1)
+BIQUAD_FILTER_REVERSE(flt, float,   -1., 1., 0)
+BIQUAD_FILTER_REVERSE(dbl, double,  -1., 1., 0)
+
 static int config_filter(AVFilterLink *outlink, int reset)
 {
     AVFilterContext *ctx    = outlink->src;
@@ -268,6 +372,18 @@ static int config_filter(AVFilterLink *outlink, int reset)
     double w0 = 2 * M_PI * s->frequency / inlink->sample_rate;
     double K = tan(w0 / 2.);
     double alpha, beta;
+
+    if (s->reverse && reset) {
+        s->window_size = s->hop_size * 2;
+        s->window_func_lut = av_calloc(s->window_size, sizeof(*s->window_func_lut));
+        if (!s->window_func_lut)
+            return AVERROR(ENOMEM);
+        for (int i = 0; i < s->window_size; i++)
+            s->window_func_lut[i] = .5*(1-cos(2*M_PI*i/(s->window_size-1)));
+        s->frame = ff_get_audio_buffer(outlink, s->window_size * 2);
+        if (!s->frame)
+            return AVERROR(ENOMEM);
+    }
 
     if (w0 > M_PI) {
         av_log(ctx, AV_LOG_ERROR,
@@ -439,10 +555,22 @@ static int config_filter(AVFilterLink *outlink, int reset)
         memset(s->cache, 0, sizeof(ChanCache) * inlink->channels);
 
     switch (inlink->format) {
-    case AV_SAMPLE_FMT_S16P: s->filter = biquad_s16; break;
-    case AV_SAMPLE_FMT_S32P: s->filter = biquad_s32; break;
-    case AV_SAMPLE_FMT_FLTP: s->filter = biquad_flt; break;
-    case AV_SAMPLE_FMT_DBLP: s->filter = biquad_dbl; break;
+    case AV_SAMPLE_FMT_S16P:
+        s->filter = biquad_s16;
+        s->reverse_filter = biquad_reverse_s16;
+        break;
+    case AV_SAMPLE_FMT_S32P:
+        s->filter = biquad_s32;
+        s->reverse_filter = biquad_reverse_s32;
+        break;
+    case AV_SAMPLE_FMT_FLTP:
+        s->filter = biquad_flt;
+        s->reverse_filter = biquad_reverse_flt;
+        break;
+    case AV_SAMPLE_FMT_DBLP:
+        s->filter = biquad_dbl;
+        s->reverse_filter = biquad_reverse_dbl;
+        break;
     default: av_assert0(0);
     }
 
@@ -457,8 +585,43 @@ static int config_output(AVFilterLink *outlink)
 }
 
 typedef struct ThreadData {
-    AVFrame *in, *out;
+    AVFrame *in, *out, *tmp;
 } ThreadData;
+
+static int reverse_filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
+{
+    BiquadsContext *s = ctx->priv;
+    AVFilterLink *inlink = ctx->inputs[0];
+    ThreadData *td = arg;
+    AVFrame *buf = td->in;
+    AVFrame *out_buf = td->out;
+    AVFrame *tmp_buf = td->tmp;
+    AVFrame *dst_buf = s->frame;
+    const int start = (buf->channels * jobnr) / nb_jobs;
+    const int end = (buf->channels * (jobnr+1)) / nb_jobs;
+    int ch;
+
+    for (ch = start; ch < end; ch++) {
+        if (!((av_channel_layout_extract_channel(inlink->channel_layout, ch) & s->channels))) {
+            if (buf != out_buf)
+                memcpy(out_buf->extended_data[ch], buf->extended_data[ch],
+                       buf->nb_samples * s->block_align);
+            continue;
+        }
+
+        s->filter(s, buf->extended_data[ch], tmp_buf->extended_data[ch], buf->nb_samples,
+                  &s->cache[ch].i1, &s->cache[ch].i2, &s->cache[ch].o1, &s->cache[ch].o2,
+                  s->b0, s->b1, s->b2, s->a1, s->a2, &s->cache[ch].clippings, ctx->is_disabled);
+        s->reverse_filter(s, tmp_buf->extended_data[ch], out_buf->extended_data[ch],
+                          dst_buf->extended_data[ch],
+                          tmp_buf->nb_samples, &s->cache[ch].ri1, &s->cache[ch].ri2,
+                          &s->cache[ch].ro1, &s->cache[ch].ro2,
+                          s->b0, s->b1, s->b2, s->a1, s->a2,
+                          &s->cache[ch].clippings);
+    }
+
+    return 0;
+}
 
 static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 {
@@ -485,6 +648,46 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
     }
 
     return 0;
+}
+
+static int reverse_filter_frame(AVFilterLink *inlink, AVFrame *buf)
+{
+    AVFilterContext *ctx = inlink->dst;
+    BiquadsContext *s = ctx->priv;
+    AVFilterLink *outlink = ctx->outputs[0];
+    AVFrame *out_buf, *tmp_buf;
+    ThreadData td;
+    int ch;
+
+    out_buf = ff_get_audio_buffer(outlink, buf->nb_samples);
+    tmp_buf = ff_get_audio_buffer(outlink, buf->nb_samples);
+    if (!out_buf || !tmp_buf) {
+        av_frame_free(&out_buf);
+        av_frame_free(&tmp_buf);
+        av_frame_free(&buf);
+        return AVERROR(ENOMEM);
+    }
+    av_frame_copy_props(out_buf, buf);
+
+    td.in = buf;
+    td.out = out_buf;
+    td.tmp = tmp_buf;
+    ctx->internal->execute(ctx, reverse_filter_channel, &td, NULL,
+                           FFMIN(outlink->channels, ff_filter_get_nb_threads(ctx)));
+
+    for (ch = 0; ch < outlink->channels; ch++) {
+        if (s->cache[ch].clippings > 0)
+            av_log(ctx, AV_LOG_WARNING, "Channel %d clipping %d times. Please reduce gain.\n",
+                   ch, s->cache[ch].clippings);
+        s->cache[ch].clippings = 0;
+    }
+
+    out_buf->nb_samples = FFMIN(buf->nb_samples, s->hop_size);
+    av_frame_free(&buf);
+    av_frame_free(&tmp_buf);
+    ff_inlink_skip_samples(inlink, s->hop_size);
+
+    return ff_filter_frame(outlink, out_buf);
 }
 
 static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
@@ -526,6 +729,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
 
 static int activate(AVFilterContext *ctx)
 {
+    BiquadsContext *s = ctx->priv;
     AVFilterLink *inlink = ctx->inputs[0];
     AVFilterLink *outlink = ctx->outputs[0];
     AVFrame *in = NULL;
@@ -533,13 +737,18 @@ static int activate(AVFilterContext *ctx)
 
     FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
 
-    ret = ff_inlink_consume_frame(inlink, &in);
-    if (ret < 0)
-        return ret;
-    if (ret > 0) {
-        ret = filter_frame(inlink, in);
+    if (s->reverse) {
+        ret = ff_inlink_peek_samples(inlink, s->window_size, &in);
         if (ret < 0)
             return ret;
+        if (ret > 0)
+            return reverse_filter_frame(inlink, in);
+    } else {
+        ret = ff_inlink_consume_frame(inlink, &in);
+        if (ret < 0)
+            return ret;
+        if (ret > 0)
+            return filter_frame(inlink, in);
     }
 
     FF_FILTER_FORWARD_STATUS(inlink, outlink);
@@ -566,6 +775,8 @@ static av_cold void uninit(AVFilterContext *ctx)
     BiquadsContext *s = ctx->priv;
 
     av_freep(&s->cache);
+    av_freep(&s->window_func_lut);
+    av_frame_free(&s->frame);
 }
 
 static const AVFilterPad inputs[] = {
@@ -635,6 +846,10 @@ static const AVOption equalizer_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -661,6 +876,10 @@ static const AVOption bass_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -687,6 +906,10 @@ static const AVOption treble_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -712,6 +935,10 @@ static const AVOption bandpass_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -736,6 +963,10 @@ static const AVOption bandreject_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -762,6 +993,10 @@ static const AVOption lowpass_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -788,6 +1023,10 @@ static const AVOption highpass_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -840,6 +1079,10 @@ static const AVOption lowshelf_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -866,6 +1109,10 @@ static const AVOption highshelf_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
@@ -885,6 +1132,10 @@ static const AVOption biquad_options[] = {
     {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
+    {"reverse", "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"r",       "reverse filtering", OFFSET(reverse), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AF},
+    {"size", "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
+    {"s",    "set window size for reverse filtering", OFFSET(hop_size), AV_OPT_TYPE_INT, {.i64=2048}, 256, 32768, AF},
     {NULL}
 };
 
