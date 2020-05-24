@@ -2693,6 +2693,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Commands
@@ -2756,6 +2765,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Commands
@@ -2826,6 +2844,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Commands
@@ -2884,6 +2911,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @section bs2b
@@ -3607,6 +3643,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Examples
@@ -4084,6 +4129,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Commands
@@ -4410,6 +4464,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Examples
@@ -5530,6 +5593,15 @@ Specify which channels to filter, by default all available are filtered.
 @item normalize, n
 Normalize biquad coefficients, by default is disabled.
 Enabling it will normalize magnitude response at DC to 0dB.
+
+@item reverse, r
+Enable reverse filter processing. Makes filter's phase response
+linear at cost of introduced latency.
+
+@item size, s
+Set size of window for reverse filter processing.
+Allowed range is from 256 to 32768.
+Default value is 2048.
 @end table
 
 @subsection Commands
