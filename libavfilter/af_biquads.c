@@ -67,6 +67,7 @@
 #include "libavutil/opt.h"
 #include "audio.h"
 #include "avfilter.h"
+#include "filters.h"
 #include "internal.h"
 
 enum FilterType {
@@ -523,6 +524,30 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
     return ff_filter_frame(outlink, out_buf);
 }
 
+static int activate(AVFilterContext *ctx)
+{
+    AVFilterLink *inlink = ctx->inputs[0];
+    AVFilterLink *outlink = ctx->outputs[0];
+    AVFrame *in = NULL;
+    int ret;
+
+    FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
+
+    ret = ff_inlink_consume_frame(inlink, &in);
+    if (ret < 0)
+        return ret;
+    if (ret > 0) {
+        ret = filter_frame(inlink, in);
+        if (ret < 0)
+            return ret;
+    }
+
+    FF_FILTER_FORWARD_STATUS(inlink, outlink);
+    FF_FILTER_FORWARD_WANTED(outlink, inlink);
+
+    return FFERROR_NOT_READY;
+}
+
 static int process_command(AVFilterContext *ctx, const char *cmd, const char *args,
                            char *res, int res_len, int flags)
 {
@@ -547,7 +572,6 @@ static const AVFilterPad inputs[] = {
     {
         .name         = "default",
         .type         = AVMEDIA_TYPE_AUDIO,
-        .filter_frame = filter_frame,
     },
     { NULL }
 };
@@ -567,19 +591,20 @@ static const AVFilterPad outputs[] = {
 
 #define DEFINE_BIQUAD_FILTER(name_, description_)                       \
 AVFILTER_DEFINE_CLASS(name_);                                           \
-static av_cold int name_##_init(AVFilterContext *ctx) \
+static av_cold int name_##_init(AVFilterContext *ctx)                   \
 {                                                                       \
     BiquadsContext *s = ctx->priv;                                      \
     s->class = &name_##_class;                                          \
     s->filter_type = name_;                                             \
-    return init(ctx);                                             \
+    return init(ctx);                                                   \
 }                                                                       \
                                                          \
-AVFilter ff_af_##name_ = {                         \
+AVFilter ff_af_##name_ = {                               \
     .name          = #name_,                             \
     .description   = NULL_IF_CONFIG_SMALL(description_), \
     .priv_size     = sizeof(BiquadsContext),             \
     .init          = name_##_init,                       \
+    .activate      = activate,                           \
     .uninit        = uninit,                             \
     .query_formats = query_formats,                      \
     .inputs        = inputs,                             \
