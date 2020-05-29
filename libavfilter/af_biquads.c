@@ -138,13 +138,14 @@ typedef struct BiquadsContext {
     int hop_size;
     double *window_func_lut;
 
-    void (*filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, int len,
+    void (*filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, void *dst, int len,
                    double *i1, double *i2, double *o1, double *o2,
                    double b0, double b1, double b2, double a1, double a2, int *clippings,
                    int disabled);
     void (*reverse_filter)(struct BiquadsContext *s, const void *ibuf, void *obuf, void *dst,
                    int len, double *i1, double *i2, double *o1, double *o2,
-                   double b0, double b1, double b2, double a1, double a2, int *clippings);
+                   double b0, double b1, double b2, double a1, double a2, int *clippings,
+                   int disabled);
 } BiquadsContext;
 
 static av_cold int init(AVFilterContext *ctx)
@@ -195,97 +196,15 @@ static int query_formats(AVFilterContext *ctx)
     return ff_set_common_samplerates(ctx, formats);
 }
 
-#define BIQUAD_FILTER(name, type, min, max, need_clipping)                    \
+#define BIQUAD_FILTER(name, type, min, max, need_clipping, reverse)           \
 static void biquad_## name (BiquadsContext *s,                                \
-                            const void *input, void *output, int len,         \
-                            double *in1, double *in2,                         \
-                            double *out1, double *out2,                       \
-                            double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings,             \
-                            int disabled)                                     \
-{                                                                             \
-    const type *ibuf = input;                                                 \
-    type *obuf = output;                                                      \
-    double i1 = *in1;                                                         \
-    double i2 = *in2;                                                         \
-    double o1 = *out1;                                                        \
-    double o2 = *out2;                                                        \
-    double wet = s->mix;                                                      \
-    double dry = 1. - wet;                                                    \
-    double out;                                                               \
-    int i;                                                                    \
-    a1 = -a1;                                                                 \
-    a2 = -a2;                                                                 \
-                                                                              \
-    for (i = 0; i+1 < len; i++) {                                             \
-        o2 = i2 * b2 + i1 * b1 + ibuf[i] * b0 + o2 * a2 + o1 * a1;            \
-        i2 = ibuf[i];                                                         \
-        out = o2 * wet + i2 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i2;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-        i++;                                                                  \
-        o1 = i1 * b2 + i2 * b1 + ibuf[i] * b0 + o1 * a2 + o2 * a1;            \
-        i1 = ibuf[i];                                                         \
-        out = o1 * wet + i1 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i1;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    if (i < len) {                                                            \
-        double o0 = ibuf[i] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;     \
-        i2 = i1;                                                              \
-        i1 = ibuf[i];                                                         \
-        o2 = o1;                                                              \
-        o1 = o0;                                                              \
-        out = o0 * wet + i1 * dry;                                            \
-        if (disabled) {                                                       \
-            obuf[i] = i1;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    *in1  = i1;                                                               \
-    *in2  = i2;                                                               \
-    *out1 = o1;                                                               \
-    *out2 = o2;                                                               \
-}
-
-BIQUAD_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_FILTER(flt, float,   -1., 1., 0)
-BIQUAD_FILTER(dbl, double,  -1., 1., 0)
-
-#define BIQUAD_FILTER_REVERSE(name, type, min, max, need_clipping)            \
-static void biquad_reverse_## name (BiquadsContext *s,                        \
                             const void *input, void *output, void *dst,       \
                             int len,                                          \
                             double *in1, double *in2,                         \
                             double *out1, double *out2,                       \
                             double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings)             \
+                            double a1, double a2, int *clippings,             \
+                            int disabled)                                     \
 {                                                                             \
     const type *ibuf = input;                                                 \
     type *obuf = output;                                                      \
@@ -305,11 +224,13 @@ static void biquad_reverse_## name (BiquadsContext *s,                        \
     a2 = -a2;                                                                 \
                                                                               \
     for (i = 0; i+1 < len; i++) {                                             \
-        j = len - 1 - i;                                                      \
+        j = reverse ? len - 1 - i : i;                                        \
         o2 = i2 * b2 + i1 * b1 + ibuf[j] * b0 + o2 * a2 + o1 * a1;            \
         i2 = ibuf[j];                                                         \
         out = o2 * wet + i2 * dry;                                            \
-        if (need_clipping && out < min) {                                     \
+        if (disabled) {                                                       \
+            obuf[j] = ibuf[j];                                                \
+        } else if (need_clipping && out < min) {                              \
             (*clippings)++;                                                   \
             obuf[j] = min;                                                    \
         } else if (need_clipping && out > max) {                              \
@@ -319,11 +240,13 @@ static void biquad_reverse_## name (BiquadsContext *s,                        \
             obuf[j] = out;                                                    \
         }                                                                     \
         i++;                                                                  \
-        j = len - 1 - i;                                                      \
+        j = reverse ? len - 1 - i : i;                                        \
         o1 = i1 * b2 + i2 * b1 + ibuf[j] * b0 + o1 * a2 + o2 * a1;            \
         i1 = ibuf[j];                                                         \
         out = o1 * wet + i1 * dry;                                            \
-        if (need_clipping && out < min) {                                     \
+        if (disabled) {                                                       \
+            obuf[j] = ibuf[j];                                                \
+        } else if (need_clipping && out < min) {                              \
             (*clippings)++;                                                   \
             obuf[j] = min;                                                    \
         } else if (need_clipping && out > max) {                              \
@@ -334,14 +257,16 @@ static void biquad_reverse_## name (BiquadsContext *s,                        \
         }                                                                     \
     }                                                                         \
     if (i < len) {                                                            \
-        j = len - 1 - i;                                                      \
+        j = reverse ? len - 1 - i : i;                                        \
         o0 = ibuf[j] * b0 + i1 * b1 + i2 * b2 + o1 * a1 + o2 * a2;            \
         i2 = i1;                                                              \
         i1 = ibuf[j];                                                         \
         o2 = o1;                                                              \
         o1 = o0;                                                              \
         out = o0 * wet + i1 * dry;                                            \
-        if (need_clipping && out < min) {                                     \
+        if (disabled) {                                                       \
+            obuf[j] = ibuf[j];                                                \
+        } else if (need_clipping && out < min) {                              \
             (*clippings)++;                                                   \
             obuf[j] = min;                                                    \
         } else if (need_clipping && out > max) {                              \
@@ -356,6 +281,8 @@ static void biquad_reverse_## name (BiquadsContext *s,                        \
     *out1 = o1;                                                               \
     *out2 = o2;                                                               \
                                                                               \
+    if (!reverse) return;                                                     \
+                                                                              \
     for (i = 0; i < len; i++)                                                 \
         dbuf[i] += obuf[i] * w[i];                                            \
     for (i = 0; i < s->hop_size; i++)                                         \
@@ -366,67 +293,25 @@ static void biquad_reverse_## name (BiquadsContext *s,                        \
            s->hop_size * s->block_align);                                     \
 }
 
-BIQUAD_FILTER_REVERSE(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_FILTER_REVERSE(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_FILTER_REVERSE(flt, float,   -1., 1., 0)
-BIQUAD_FILTER_REVERSE(dbl, double,  -1., 1., 0)
+BIQUAD_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1, 0)
+BIQUAD_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1, 0)
+BIQUAD_FILTER(flt, float,   -1., 1., 0, 0)
+BIQUAD_FILTER(dbl, double,  -1., 1., 0, 0)
 
-#define BIQUAD_DII_FILTER(name, type, min, max, need_clipping)                \
-static void biquad_dii_## name (BiquadsContext *s,                            \
-                            const void *input, void *output, int len,         \
-                            double *z1, double *z2,                           \
-                            double *unused1, double *unused2,                 \
-                            double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings,             \
-                            int disabled)                                     \
-{                                                                             \
-    const type *ibuf = input;                                                 \
-    type *obuf = output;                                                      \
-    double w1 = *z1;                                                          \
-    double w2 = *z2;                                                          \
-    double wet = s->mix;                                                      \
-    double dry = 1. - wet;                                                    \
-    double in, out, w0;                                                       \
-                                                                              \
-    a1 = -a1;                                                                 \
-    a2 = -a2;                                                                 \
-                                                                              \
-    for (int i = 0; i < len; i++) {                                           \
-        in = ibuf[i];                                                         \
-        w0 = in + a1 * w1 + a2 * w2;                                          \
-        out = b0 * w0 + b1 * w1 + b2 * w2;                                    \
-        w2 = w1;                                                              \
-        w1 = w0;                                                              \
-        out = out * wet + in * dry;                                           \
-        if (disabled) {                                                       \
-            obuf[i] = in;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    *z1 = w1;                                                                 \
-    *z2 = w2;                                                                 \
-}
+BIQUAD_FILTER(reverse_s16, int16_t, INT16_MIN, INT16_MAX, 1, 1)
+BIQUAD_FILTER(reverse_s32, int32_t, INT32_MIN, INT32_MAX, 1, 1)
+BIQUAD_FILTER(reverse_flt, float,   -1., 1., 0, 1)
+BIQUAD_FILTER(reverse_dbl, double,  -1., 1., 0, 1)
 
-BIQUAD_DII_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_DII_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_DII_FILTER(flt, float,   -1., 1., 0)
-BIQUAD_DII_FILTER(dbl, double,  -1., 1., 0)
-
-#define BIQUAD_REVERSE_DII_FILTER(name, type, min, max, need_clipping)        \
-static void biquad_reverse_dii_## name (BiquadsContext *s,                    \
+#define BIQUAD_DII_FILTER(name, type, min, max, need_clipping, reverse)       \
+static void biquad_## name (BiquadsContext *s,                                \
                             const void *input, void *output, void *dst,       \
                             int len,                                          \
                             double *z1, double *z2,                           \
                             double *unused1, double *unused2,                 \
                             double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings)             \
+                            double a1, double a2, int *clippings,             \
+                            int disabled)                                     \
 {                                                                             \
     const double *w = s->window_func_lut;                                     \
     const type *ibuf = input;                                                 \
@@ -442,14 +327,16 @@ static void biquad_reverse_dii_## name (BiquadsContext *s,                    \
     a2 = -a2;                                                                 \
                                                                               \
     for (int i = 0; i < len; i++) {                                           \
-        int j = len - 1 - i;                                                  \
+        int j = reverse ? len - 1 - i : i;                                    \
         in = ibuf[j];                                                         \
         w0 = in + a1 * w1 + a2 * w2;                                          \
         out = b0 * w0 + b1 * w1 + b2 * w2;                                    \
         w2 = w1;                                                              \
         w1 = w0;                                                              \
         out = out * wet + in * dry;                                           \
-        if (need_clipping && out < min) {                                     \
+        if (disabled) {                                                       \
+            obuf[j] = in;                                                     \
+        } else if (need_clipping && out < min) {                              \
             (*clippings)++;                                                   \
             obuf[j] = min;                                                    \
         } else if (need_clipping && out > max) {                              \
@@ -462,6 +349,8 @@ static void biquad_reverse_dii_## name (BiquadsContext *s,                    \
     *z1 = w1;                                                                 \
     *z2 = w2;                                                                 \
                                                                               \
+    if (!reverse) return;                                                     \
+                                                                              \
     for (int i = 0; i < len; i++)                                             \
         dbuf[i] += obuf[i] * w[i];                                            \
     for (int i = 0; i < s->hop_size; i++)                                     \
@@ -472,66 +361,25 @@ static void biquad_reverse_dii_## name (BiquadsContext *s,                    \
            s->hop_size * s->block_align);                                     \
 }
 
-BIQUAD_REVERSE_DII_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_REVERSE_DII_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_REVERSE_DII_FILTER(flt, float,   -1., 1., 0)
-BIQUAD_REVERSE_DII_FILTER(dbl, double,  -1., 1., 0)
+BIQUAD_DII_FILTER(dii_s16, int16_t, INT16_MIN, INT16_MAX, 1, 0)
+BIQUAD_DII_FILTER(dii_s32, int32_t, INT32_MIN, INT32_MAX, 1, 0)
+BIQUAD_DII_FILTER(dii_flt, float,   -1., 1., 0, 0)
+BIQUAD_DII_FILTER(dii_dbl, double,  -1., 1., 0, 0)
 
-#define BIQUAD_TDII_FILTER(name, type, min, max, need_clipping)               \
-static void biquad_tdii_## name (BiquadsContext *s,                           \
-                            const void *input, void *output, int len,         \
-                            double *z1, double *z2,                           \
-                            double *unused1, double *unused2,                 \
-                            double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings,             \
-                            int disabled)                                     \
-{                                                                             \
-    const type *ibuf = input;                                                 \
-    type *obuf = output;                                                      \
-    double w1 = *z1;                                                          \
-    double w2 = *z2;                                                          \
-    double wet = s->mix;                                                      \
-    double dry = 1. - wet;                                                    \
-    double in, out;                                                           \
-                                                                              \
-    a1 = -a1;                                                                 \
-    a2 = -a2;                                                                 \
-                                                                              \
-    for (int i = 0; i < len; i++) {                                           \
-        in = ibuf[i];                                                         \
-        out = b0 * in + w1;                                                   \
-        w1 = b1 * in + w2 + a1 * out;                                         \
-        w2 = b2 * in + a2 * out;                                              \
-        out = out * wet + in * dry;                                           \
-        if (disabled) {                                                       \
-            obuf[i] = in;                                                     \
-        } else if (need_clipping && out < min) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = min;                                                    \
-        } else if (need_clipping && out > max) {                              \
-            (*clippings)++;                                                   \
-            obuf[i] = max;                                                    \
-        } else {                                                              \
-            obuf[i] = out;                                                    \
-        }                                                                     \
-    }                                                                         \
-    *z1 = w1;                                                                 \
-    *z2 = w2;                                                                 \
-}
+BIQUAD_DII_FILTER(reverse_dii_s16, int16_t, INT16_MIN, INT16_MAX, 1, 1)
+BIQUAD_DII_FILTER(reverse_dii_s32, int32_t, INT32_MIN, INT32_MAX, 1, 1)
+BIQUAD_DII_FILTER(reverse_dii_flt, float,   -1., 1., 0, 1)
+BIQUAD_DII_FILTER(reverse_dii_dbl, double,  -1., 1., 0, 1)
 
-BIQUAD_TDII_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_TDII_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_TDII_FILTER(flt, float,   -1., 1., 0)
-BIQUAD_TDII_FILTER(dbl, double,  -1., 1., 0)
-
-#define BIQUAD_REVERSE_TDII_FILTER(name, type, min, max, need_clipping)       \
-static void biquad_reverse_tdii_## name (BiquadsContext *s,                   \
+#define BIQUAD_TDII_FILTER(name, type, min, max, need_clipping, reverse)      \
+static void biquad_## name (BiquadsContext *s,                                \
                             const void *input, void *output, void *dst,       \
                             int len,                                          \
                             double *z1, double *z2,                           \
                             double *unused1, double *unused2,                 \
                             double b0, double b1, double b2,                  \
-                            double a1, double a2, int *clippings)             \
+                            double a1, double a2, int *clippings,             \
+                            int disabled)                                     \
 {                                                                             \
     const double *w = s->window_func_lut;                                     \
     const type *ibuf = input;                                                 \
@@ -547,13 +395,15 @@ static void biquad_reverse_tdii_## name (BiquadsContext *s,                   \
     a2 = -a2;                                                                 \
                                                                               \
     for (int i = 0; i < len; i++) {                                           \
-        int j = len - 1 - i;                                                  \
+        int j = reverse ? len - 1 - i : i;                                    \
         in = ibuf[j];                                                         \
         out = b0 * in + w1;                                                   \
         w1 = b1 * in + w2 + a1 * out;                                         \
         w2 = b2 * in + a2 * out;                                              \
         out = out * wet + in * dry;                                           \
-        if (need_clipping && out < min) {                                     \
+        if (disabled) {                                                       \
+            obuf[j] = in;                                                     \
+        } else if (need_clipping && out < min) {                              \
             (*clippings)++;                                                   \
             obuf[j] = min;                                                    \
         } else if (need_clipping && out > max) {                              \
@@ -566,6 +416,8 @@ static void biquad_reverse_tdii_## name (BiquadsContext *s,                   \
     *z1 = w1;                                                                 \
     *z2 = w2;                                                                 \
                                                                               \
+    if (!reverse) return;                                                     \
+                                                                              \
     for (int i = 0; i < len; i++)                                             \
         dbuf[i] += obuf[i] * w[i];                                            \
     for (int i = 0; i < s->hop_size; i++)                                     \
@@ -576,10 +428,15 @@ static void biquad_reverse_tdii_## name (BiquadsContext *s,                   \
            s->hop_size * s->block_align);                                     \
 }
 
-BIQUAD_REVERSE_TDII_FILTER(s16, int16_t, INT16_MIN, INT16_MAX, 1)
-BIQUAD_REVERSE_TDII_FILTER(s32, int32_t, INT32_MIN, INT32_MAX, 1)
-BIQUAD_REVERSE_TDII_FILTER(flt, float,   -1., 1., 0)
-BIQUAD_REVERSE_TDII_FILTER(dbl, double,  -1., 1., 0)
+BIQUAD_TDII_FILTER(tdii_s16, int16_t, INT16_MIN, INT16_MAX, 1, 0)
+BIQUAD_TDII_FILTER(tdii_s32, int32_t, INT32_MIN, INT32_MAX, 1, 0)
+BIQUAD_TDII_FILTER(tdii_flt, float,   -1., 1., 0, 0)
+BIQUAD_TDII_FILTER(tdii_dbl, double,  -1., 1., 0, 0)
+
+BIQUAD_TDII_FILTER(reverse_tdii_s16, int16_t, INT16_MIN, INT16_MAX, 1, 1)
+BIQUAD_TDII_FILTER(reverse_tdii_s32, int32_t, INT32_MIN, INT32_MAX, 1, 1)
+BIQUAD_TDII_FILTER(reverse_tdii_flt, float,   -1., 1., 0, 1)
+BIQUAD_TDII_FILTER(reverse_tdii_dbl, double,  -1., 1., 0, 1)
 
 static int config_filter(AVFilterLink *outlink, int reset)
 {
@@ -875,7 +732,7 @@ static int reverse_filter_channel(AVFilterContext *ctx, void *arg, int jobnr, in
             continue;
         }
 
-        s->filter(s, buf->extended_data[ch], tmp_buf->extended_data[ch], buf->nb_samples,
+        s->filter(s, buf->extended_data[ch], tmp_buf->extended_data[ch], NULL, buf->nb_samples,
                   &s->cache[ch].i1, &s->cache[ch].i2, &s->cache[ch].o1, &s->cache[ch].o2,
                   s->b0, s->b1, s->b2, s->a1, s->a2, &s->cache[ch].clippings, ctx->is_disabled);
         s->reverse_filter(s, tmp_buf->extended_data[ch], out_buf->extended_data[ch],
@@ -883,7 +740,7 @@ static int reverse_filter_channel(AVFilterContext *ctx, void *arg, int jobnr, in
                           tmp_buf->nb_samples, &s->cache[ch].ri1, &s->cache[ch].ri2,
                           &s->cache[ch].ro1, &s->cache[ch].ro2,
                           s->b0, s->b1, s->b2, s->a1, s->a2,
-                          &s->cache[ch].clippings);
+                          &s->cache[ch].clippings, ctx->is_disabled);
     }
 
     return 0;
@@ -908,7 +765,7 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
             continue;
         }
 
-        s->filter(s, buf->extended_data[ch], out_buf->extended_data[ch], buf->nb_samples,
+        s->filter(s, buf->extended_data[ch], out_buf->extended_data[ch], NULL, buf->nb_samples,
                   &s->cache[ch].i1, &s->cache[ch].i2, &s->cache[ch].o1, &s->cache[ch].o2,
                   s->b0, s->b1, s->b2, s->a1, s->a2, &s->cache[ch].clippings, ctx->is_disabled);
     }
