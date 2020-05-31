@@ -43,6 +43,7 @@ extern AVFilter ff_af_afftdn;
 extern AVFilter ff_af_afftfilt;
 extern AVFilter ff_af_afir;
 extern AVFilter ff_af_aformat;
+extern AVFilter ff_af_afwtdn;
 extern AVFilter ff_af_agate;
 extern AVFilter ff_af_aiir;
 extern AVFilter ff_af_aintegral;
