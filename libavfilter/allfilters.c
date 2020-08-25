@@ -143,6 +143,7 @@ extern AVFilter ff_asrc_afirsrc;
 extern AVFilter ff_asrc_anoisesrc;
 extern AVFilter ff_asrc_anullsrc;
 extern AVFilter ff_asrc_flite;
+extern AVFilter ff_asrc_fluidsynthmusic;
 extern AVFilter ff_asrc_hilbert;
 extern AVFilter ff_asrc_sinc;
 extern AVFilter ff_asrc_sine;

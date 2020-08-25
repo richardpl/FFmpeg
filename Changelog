@@ -97,6 +97,7 @@ version 4.3:
 - PFM decoder
 - dblur video filter
 - Real War KVAG muxer
+- fluidsynthmusic filter
 
 
 version 4.2:

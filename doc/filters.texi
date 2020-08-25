@@ -6200,6 +6200,152 @@ anoisesrc=d=60:c=pink:r=44100:a=0.5
 @end example
 @end itemize
 
+@section fluidsynthmusic
+
+Generate nice listenable algorithmic music.
+To compile filter configure ffmpeg with @code{--enable-libfluidsynth} 
+
+The filter accepts the following options:
+
+@table @option
+@item sample_rate, r
+Specify the sample rate. Default value is 44100 Hz.
+
+@item nb_samples
+Set the number of samples per each output frame. Default is 1024.
+
+@item sfont
+Specify the location of soundfont file. Default value is 
+"/usr/share/sounds/sf2/FluidR3_GM.sf2"(for ubuntu linux). Recommended to 
+use the FluidR3_GM general midi soundfont file.
+
+@item duration, d
+Specify the duration of the generated audio stream. Not specifying this option
+results in playing tones for infinite length.
+
+@item velocity, v
+Specify the velocity of key press between 0 to 127. Default value is 80.
+
+@item p_velocity
+Specify the velocity of key press for percussion track between 0 to 127. 
+Default value is 80.
+
+@item bpm
+Specify the beats per minute. Default is 80.
+
+@item seed
+Specify the seed for random number generator, must be an integer included between 0 and
+UINT32_MAX. If not specified, or if explicitly set to -1, the filter will use a random seed.
+
+@item algo
+Specify the algorithm type. Available options are riffs, lsystem, ca(cellular_automaton)
+and rhythm. Default is ca.
+
+@item instrument
+Specify the instrument for riffs and Lindenmayer system. Available instruments are Acoustic-Grand, 
+Bright-Acoustic, ... as defined in the General Midi specifications. Default is Acoustic-Grand.
+
+@item percussion
+Specify the percussion track for beats. Available options are Jazz1, 
+Jazz2, ..., Jazz6, Rock1...4, Shuffle, Metronome. Default is Shuffle.
+
+@item numbars
+Set the number of bars in which riff energy will change between 0 to 8. Default is 2.
+
+@item scale
+Set the scale for Lindenmayer system and cellular automaton. Specify as root note_scale type.
+Specify scale types as major, n_minor for natural minor, m_minor for melodic minor, h_minor 
+as harmonic minor, p_major for pentatonic major, p_minor for pentatonic minor and blues for 
+blues scale. The root note is specified as C or Cs or Db for C or C sharp or D flat respectively.
+So scale specified as C_n_minor, Cs_p_major, etc. Default is C_major.
+
+@item height
+Set the height for mapping of scale for cellular automaton and Lindenmayer system. 
+It will map the upper and lower octaves. The range is from 10 to 25. Default value is 20.
+
+@item axiom
+Set the axiom for Lindenmayer system. Enter as combination of C, F, X, m, p, D. The symbols are 
+decoded as F-> increase note duration by factor of 2, X-> rest note, p-> move up in the scale 
+by one note, m-> move down in the scale by one note, C-> push current state, D-> set note 
+state to initial state. Default is "CFppFmmXD".
+
+@item rule1
+Set the rule 1 in the Lindenmayer system. Specify as "symbol"to"conversion". The rule is substituted 
+in the axiom till the specified number of generations. Default is "XtoFCppppFmmmmXDCmmFpppD".
+
+@item rule2
+Set the rule 2 in the Lindenmayer system. Default is "FtoCppppFmmmFpppFD".
+
+@item gen
+Set the number of generations to compute in the Lindenmayer system. In each generation, the symbol
+is converted as specified in rule1 and rule2. The 0th generation is axiom.
+
+@item ruletype
+Set the ruletype for cellular automaton. Recommended rule types are 7, 15, 31, 55, 61, 79, 91, 103, 
+110, 157, 167, 773, 1047, 1585. It is to decide the neighbor cells for computation. 7 gives neighbor
+cells as -1, 0, 1 and similar for other rules. Default is 31.
+
+@item rule
+Set the rule for cellular automaton. The range should be from 0 to 2^(2^number of neighbors) - 1.
+Default value is 367921.
+
+@item boundary
+Set the boundary type for cellular automaton. Allowed options are infinite and cyclic. 
+Default is cyclic.
+
+@item bass_instr
+Set the bass instrument for cellular automaton. Available instruments are Acoustic-Grand, 
+Bright-Acoustic, ... as defined in the General Midi specifications. Default is Acoustic-Grand.
+
+@item chord_instr
+Set the chords instrument for cellular automaton. Available instruments are Acoustic-Grand, 
+Bright-Acoustic, ... as defined in the General Midi specifications. Default is Acoustic-Grand.
+
+@item lead_instr
+Set the lead instrument for cellular automaton. Available instruments are Acoustic-Grand, 
+Bright-Acoustic, ... as defined in the General Midi specifications. Default is Acoustic-Grand.
+
+@item bass
+Set the bass algorithm for cellular automaton. Available options are lowest_notes and lower_eighth.
+Default is lowest_notes.
+
+@item chords
+Set the chords algorithm for cellular automaton. Available options are eighth, whole. Default is eighth
+
+@item lead
+Set the lead algorithm for cellular automaton. Available options are upper_eighth, upper_whole, 
+lower_eighth, lower_whole. Default is upper_eighth.
+
+@item r_algo
+Set the type of rhythm algorithm. Available options are padriddle, toggle, alternate, togpad for
+toggle and padriddle, altpad for alternate and padriddle, togalt for toggle and alternate. 
+Reference for the algorithms taken from 
+http://cgm.cs.mcgill.ca/~godfried/publications/Hawaii-Paper-Rhythm-Generation.pdf. Default is 
+altpad.
+
+@item maxres 
+Set the maximum resolution for the rhythm algorithm. Specify as 4 to have maximum resolution as
+quarter notes, 8 for eighth notes, 16 for sixteenth notes and so on for 32 and 64. Default is 16.
+
+@item density
+Set the expected density of notes in the rhythm algorithm as a percentage. Range is 1 to 100.
+Default is 75.
+
+@end table
+
+@subsection Examples
+
+@itemize
+
+@item
+Generate 10 seconds of riff music, with a key velocity of 100, instrument as Electric Guitar(jazz) 
+and percussion track as Jazz3:
+@example
+fluidsynthmusic=algo=riffs:d=10:v=100:sfont="example.sf2":instrument=Electric-Guitar-Jazz:percussion=Jazz3
+fluidsynthmusic=algo=riffs:duration=10:velocity=100:sfont="example.sf2":instrument=Electric-Guitar-Jazz:percussion=Jazz3
+@end example
+@end itemize
+
 @section hilbert
 
 Generate odd-tap Hilbert transform FIR coefficients.

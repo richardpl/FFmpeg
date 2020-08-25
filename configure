@@ -233,6 +233,7 @@ External library support:
                            and libraw1394 [no]
   --enable-libfdk-aac      enable AAC de/encoding via libfdk-aac [no]
   --enable-libflite        enable flite (voice synthesis) support via libflite [no]
+  --enable-libfluidsynth   enable libfluidsynth support for fluidsynthmusic source filter [no]
   --enable-libfontconfig   enable libfontconfig, useful for drawtext filter [no]
   --enable-libfreetype     enable libfreetype, needed for drawtext filter [no]
   --enable-libfribidi      enable libfribidi, improves drawtext filter [no]
@@ -1774,6 +1775,7 @@ EXTERNAL_LIBRARY_LIST="
     libdc1394
     libdrm
     libflite
+    libfluidsynth
     libfontconfig
     libfreetype
     libfribidi
@@ -3500,6 +3502,7 @@ asr_filter_deps="pocketsphinx"
 ass_filter_deps="libass"
 atempo_filter_deps="avcodec"
 atempo_filter_select="rdft"
+fluidsynthmusic_filter_deps="libfluidsynth"
 avgblur_opencl_filter_deps="opencl"
 avgblur_vulkan_filter_deps="vulkan libglslang"
 azmq_filter_deps="libzmq"
@@ -6343,6 +6346,7 @@ enabled libfdk_aac        && { check_pkg_config libfdk_aac fdk-aac "fdk-aac/aace
                                  warn "using libfdk without pkg-config"; } }
 flite_extralibs="-lflite_cmu_time_awb -lflite_cmu_us_awb -lflite_cmu_us_kal -lflite_cmu_us_kal16 -lflite_cmu_us_rms -lflite_cmu_us_slt -lflite_usenglish -lflite_cmulex -lflite"
 enabled libflite          && require libflite "flite/flite.h" flite_init $flite_extralibs
+enabled libfluidsynth     && require_pkg_config libfluidsynth fluidsynth "fluidsynth.h" fluid_log
 enabled fontconfig        && enable libfontconfig
 enabled libfontconfig     && require_pkg_config libfontconfig fontconfig "fontconfig/fontconfig.h" FcInit
 enabled libfreetype       && require_pkg_config libfreetype freetype2 "ft2build.h FT_FREETYPE_H" FT_Init_FreeType
