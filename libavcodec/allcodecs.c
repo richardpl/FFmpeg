@@ -64,6 +64,7 @@ extern AVCodec ff_bitpacked_decoder;
 extern AVCodec ff_bmp_encoder;
 extern AVCodec ff_bmp_decoder;
 extern AVCodec ff_bmv_video_decoder;
+extern AVCodec ff_braw_decoder;
 extern AVCodec ff_brender_pix_decoder;
 extern AVCodec ff_c93_decoder;
 extern AVCodec ff_cavs_decoder;

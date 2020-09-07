@@ -267,3 +267,36 @@ void ff_prores_idct_12(int16_t *block, const int16_t *qmat)
         idctSparseCol_int16_12bit(block + i);
     }
 }
+
+static inline void idct4ColPut_int16_12bit(int16_t *block)
+{
+    const int X0 = 17734;
+    const int X1 = 42813;
+    const int X2 = 32768;
+    int a0 = block[8*0] * X2;
+    int a2 = block[8*2] * X2;
+    int a1 = block[8*1];
+    int a3 = block[8*3];
+    int c0 = a0 + a2;
+    int c1 = a0 - a2;
+    int c2 = a1 * X0 - a3 * X1;
+    int c3 = a3 * X0 + a1 * X1;
+    int d0 = av_clip_intp2(((c0 + c3) >> 16), 12);
+    int d1 = av_clip_intp2(((c1 + c2) >> 16), 12);
+    int d2 = av_clip_intp2(((c1 - c2) >> 16), 12);
+    int d3 = av_clip_intp2(((c0 - c3) >> 16), 12);
+
+    block[8*0] = d0;
+    block[8*1] = d1;
+    block[8*2] = d2;
+    block[8*3] = d3;
+}
+
+void ff_simple_idct84_int16_12bit(int16_t *block)
+{
+    for (int i = 0; i < 4; i++)
+        idctRowCondDC_int16_12bit(block + i * 8, 0);
+
+    for (int i = 0; i < 8; i++)
+        idct4ColPut_int16_12bit(block + i);
+}
