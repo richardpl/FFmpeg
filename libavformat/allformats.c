@@ -210,6 +210,7 @@ extern AVInputFormat  ff_image2_alias_pix_demuxer;
 extern AVInputFormat  ff_image2_brender_pix_demuxer;
 extern AVInputFormat  ff_ingenient_demuxer;
 extern AVInputFormat  ff_ipmovie_demuxer;
+extern AVInputFormat  ff_ipu_demuxer;
 extern AVOutputFormat ff_ipod_muxer;
 extern AVInputFormat  ff_ircam_demuxer;
 extern AVOutputFormat ff_ircam_muxer;
