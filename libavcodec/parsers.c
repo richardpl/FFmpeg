@@ -60,6 +60,7 @@ extern AVCodecParser ff_mpeg4video_parser;
 extern AVCodecParser ff_mpegaudio_parser;
 extern AVCodecParser ff_mpegvideo_parser;
 extern AVCodecParser ff_opus_parser;
+extern AVCodecParser ff_photocd_parser;
 extern AVCodecParser ff_png_parser;
 extern AVCodecParser ff_pnm_parser;
 extern AVCodecParser ff_rv30_parser;
