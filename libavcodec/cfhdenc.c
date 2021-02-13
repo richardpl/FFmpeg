@@ -270,9 +270,9 @@ static av_cold int cfhd_encode_init(AVCodecContext *avctx)
         int width  = i ? avctx->width >> s->chroma_h_shift : avctx->width;
         int height = i ? FFALIGN(avctx->height >> s->chroma_v_shift, 8) :
                          FFALIGN(avctx->height >> s->chroma_v_shift, 8);
-        ptrdiff_t stride = FFALIGN(width / 8, 8) * 8;
+        ptrdiff_t stride = (FFALIGN(width / 8, 8) + 64) * 8;
 
-        w8 = FFALIGN(width / 8, 8);
+        w8 = FFALIGN(width / 8, 8) + 64;
         h8 = height / 8;
         w4 = w8 * 2;
         h4 = h8 * 2;
