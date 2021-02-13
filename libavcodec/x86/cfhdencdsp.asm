@@ -23,15 +23,14 @@
 
 SECTION_RODATA
 
-factor_a: times 8 dw -1
-
-factor_p1_n1: dw 1, -1, 1, -1, 1, -1, 1, -1,
-factor_n1_p1: dw -1, 1, -1, 1, -1, 1, -1, 1,
-factor_p11_n4: dw 11, -4, 11, -4, 11, -4, 11, -4,
-factor_p5_p4: dw 5, 4, 5, 4, 5, 4, 5, 4,
+factor_p1_n1: dw 1, -1, 1, -1, 1, -1, 1, -1
+factor_n1_p1: dw -1, 1, -1, 1, -1, 1, -1, 1
+factor_p11_n4: dw 11, -4, 11, -4, 11, -4, 11, -4
+factor_p5_p4: dw 5, 4, 5, 4, 5, 4, 5, 4
 pd_4: times 4 dd 4
 pw_1: times 8 dw 1
-pw_0: times 8 dw 0
+pw_p1: times 8 dw  1
+pw_n1: times 8 dw -1
 
 SECTION .text
 
@@ -62,12 +61,7 @@ cglobal cfhdenc_horiz_filter, 7, 7, 8, input, x, low, y, high, temp, width, heig
 %define hwidthq  tempm
 %endif
 
-%if ARCH_X86_64
-    mova       m8, [factor_p1_n1]
-    mova       m9, [factor_n1_p1]
-    mova      m10, [pw_1]
-    mova      m11, [pd_4]
-%endif
+    pxor       m3, m3
 
 .looph:
     movsx          xq, word [inputq]
@@ -118,30 +112,52 @@ cglobal cfhdenc_horiz_filter, 7, 7, 8, input, x, low, y, high, temp, width, heig
     paddsw         m0, m1
     movu    [lowq+xq], m0
 
-    movsx         ttq, word [inputq + xq * 2 - 4]
-    neg           ttq
-    movsx       tempq, word [inputq + xq * 2 - 2]
-    neg         tempq
-    add         tempq, ttq
+    movu           m0, [inputq + xq * 2 + 4]
+    movu           m1, [inputq + xq * 2 + 6]
 
-    movsx         ttq, word [inputq + xq * 2 + 4]
-    add         tempq, ttq
-    movsx         ttq, word [inputq + xq * 2 + 6]
-    add         tempq, ttq
-    add         tempq, 4
-    sar         tempq, 3
-    movsx         ttq, word [inputq + xq * 2 + 0]
-    add         tempq, ttq
-    movsx         ttq, word [inputq + xq * 2 + 2]
-    neg           ttq
-    add         tempq, ttq
+    mova           m2, m0
+    punpcklwd      m0, m1
+    punpckhwd      m2, m1
 
-    movd          xm0, tempd
-    packssdw       m0, m0
-    pextrw      tempd, xm0, 0
-    mov   word [highq+xq], tempw
+    pmaddwd        m0, [pw_p1]
+    pmaddwd        m2, [pw_p1]
 
-    add            xq, 2
+    movu           m1, [inputq + xq * 2 - 4]
+    movu           m3, [inputq + xq * 2 - 2]
+
+    mova           m4, m1
+    punpcklwd      m1, m3
+    punpckhwd      m4, m3
+
+    pmaddwd        m1, [pw_p1]
+    pmaddwd        m4, [pw_p1]
+
+    psubd          m0, m1
+    psubd          m2, m4
+
+    paddd          m0, [pd_4]
+    paddd          m2, [pd_4]
+
+    psrad          m0, 3
+    psrad          m2, 3
+
+    movu           m5, [inputq + xq * 2 + 0]
+    movu           m6, [inputq + xq * 2 + 2]
+
+    mova           m7, m5
+    punpcklwd      m5, m6
+    punpckhwd      m7, m6
+
+    pmaddwd        m5, [factor_p1_n1]
+    pmaddwd        m7, [factor_p1_n1]
+
+    paddd          m0, m5
+    paddd          m2, m7
+
+    packssdw       m0, m2
+    movu   [highq+xq], m0
+
+    add            xq, mmsize
     cmp            xq, widthq
     jl .loop
 
