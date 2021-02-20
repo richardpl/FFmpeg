@@ -32,6 +32,7 @@
 typedef struct DPXParseContext {
     ParseContext pc;
     uint32_t index;
+    uint32_t hsize;
     uint32_t fsize;
     uint32_t remaining_size;
     int is_be;
@@ -43,14 +44,18 @@ static int dpx_parse(AVCodecParserContext *s, AVCodecContext *avctx,
 {
     DPXParseContext *d = s->priv_data;
     uint32_t state = d->pc.state;
-    int next = END_NOT_FOUND;
-    int i = 0;
+    int next = END_NOT_FOUND, i = 0;
 
     s->pict_type = AV_PICTURE_TYPE_I;
+    s->key_frame = 1;
 
     *poutbuf_size = 0;
-    if (buf_size == 0)
-        next = 0;
+    *poutbuf = NULL;
+
+    if (s->flags & PARSER_FLAG_COMPLETE_FRAMES) {
+        next = buf_size;
+        goto flush;
+    }
 
     if (!d->pc.frame_start_found) {
         for (; i < buf_size; i++) {
@@ -64,44 +69,59 @@ static int dpx_parse(AVCodecParserContext *s, AVCodecContext *avctx,
             }
         }
         d->pc.state = state;
-    } else {
-        if (d->remaining_size) {
-            i = FFMIN(d->remaining_size, buf_size);
-            d->remaining_size -= i;
-            if (d->remaining_size)
-                goto flush;
+    } else if (d->remaining_size) {
+        i = FFMIN(d->remaining_size, buf_size);
+        d->remaining_size -= i;
+        if (!d->remaining_size) {
+            d->pc.frame_start_found = 0;
         }
+        goto flush;
     }
 
-    for (; d->pc.frame_start_found && i < buf_size; i++) {
+    for (; i < buf_size; i++) {
         d->pc.state = (d->pc.state << 8) | buf[i];
         d->index++;
-        if (d->index == 17) {
+        if (d->index == 5) {
+            d->hsize = d->is_be ? d->pc.state : av_bswap32(d->pc.state);
+        } else if (d->index == 17) {
             d->fsize = d->is_be ? d->pc.state : av_bswap32(d->pc.state);
-            if (d->fsize <= 1664) {
+
+            if (d->fsize <= 1664 || d->fsize <= d->hsize) {
                 d->pc.frame_start_found = 0;
                 goto flush;
             }
-            if (d->fsize > buf_size - i + 19)
-                d->remaining_size = d->fsize - buf_size + i - 19;
-            else
-                i += d->fsize - 19;
 
-            break;
-        } else if (d->index > 17) {
-            if (d->pc.state == MKBETAG('S','D','P','X') ||
-                d->pc.state == MKTAG('S','D','P','X')) {
-                next = i - 3;
+            if (d->hsize < 1728) {
+                if (d->fsize > buf_size - i + 19) {
+                    d->remaining_size = d->fsize - buf_size + i - 19;
+                } else {
+                    i += d->fsize - 19;
+                }
                 break;
             }
+        } else if (d->index == 1725) {
+            uint32_t fps = d->is_be ? d->pc.state : av_bswap32(d->pc.state);
+
+            avctx->framerate = av_d2q(av_int2float(fps), 4096);
+            avctx->time_base = av_inv_q(avctx->framerate);
+
+            d->fsize -= d->index + 2;
+            if (d->fsize > buf_size - i) {
+                d->remaining_size = d->fsize - buf_size + i;
+            } else {
+                i += d->fsize;
+            }
+            break;
+        } else if (state == MKBETAG('S','D','P','X') ||
+                   state == MKTAG('S','D','P','X')) {
+            next = i - 3;
+            break;
         }
     }
 
 flush:
     if (ff_combine_frame(&d->pc, next, &buf, &buf_size) < 0)
         return buf_size;
-
-    d->pc.frame_start_found = 0;
 
     *poutbuf      = buf;
     *poutbuf_size = buf_size;
