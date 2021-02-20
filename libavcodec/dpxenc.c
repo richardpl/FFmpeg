@@ -173,14 +173,25 @@ static void encode_gbrp12(AVCodecContext *avctx, const AVFrame *pic, uint16_t *d
     }
 }
 
+#define FILE_HEADER_SIZE 768
+#define IMAGE_HEADER_SIZE 640
+#define ORIENTATION_HEADER_SIZE 256
+#define FILM_INFO_HEADER_SIZE 256
+#define TV_INFO_HEADER_SIZE 128
+#define HEADER_SIZE (FILE_HEADER_SIZE + \
+                     IMAGE_HEADER_SIZE + \
+                     ORIENTATION_HEADER_SIZE + \
+                     FILM_INFO_HEADER_SIZE + \
+                     TV_INFO_HEADER_SIZE)
+
 static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
                         const AVFrame *frame, int *got_packet)
 {
     DPXContext *s = avctx->priv_data;
-    int size, ret, need_align, len;
+    int ret, need_align, len;
+    int64_t size;
     uint8_t *buf;
 
-#define HEADER_SIZE 1664  /* DPX Generic header */
     if (s->bits_per_component == 10)
         size = avctx->height * avctx->width * 4;
     else if (s->bits_per_component == 12) {
@@ -196,7 +207,7 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
         need_align = size - len;
         size *= avctx->height;
     }
-    if ((ret = ff_alloc_packet2(avctx, pkt, size + HEADER_SIZE, 0)) < 0)
+    if ((ret = ff_alloc_packet2(avctx, pkt, HEADER_SIZE + size, 0)) < 0)
         return ret;
     buf = pkt->data;
 
@@ -228,6 +239,10 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
     /* Image source information header */
     write32(buf + 1628, avctx->sample_aspect_ratio.num);
     write32(buf + 1632, avctx->sample_aspect_ratio.den);
+
+    /* Film information header */
+    if (avctx->framerate.num && avctx->framerate.den)
+        write32(buf + 1724, av_float2int(av_q2d(avctx->framerate)));
 
     switch(s->bits_per_component) {
     case 8:
